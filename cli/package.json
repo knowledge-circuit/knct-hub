@@ -1,0 +1,30 @@
+{
+  "name": "@knct/cli",
+  "version": "0.0.1",
+  "description": "CLI for knct-hub — link a repo to a hub project.",
+  "type": "module",
+  "bin": {
+    "knct": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx src/cli.ts",
+    "build": "esbuild src/cli.ts --bundle --platform=node --target=node20 --format=esm --packages=external --banner:js='#!/usr/bin/env node' --outfile=dist/cli.js && chmod +x dist/cli.js",
+    "pack:dry": "npm pack --dry-run"
+  },
+  "dependencies": {
+    "@iarna/toml": "^2.2.5",
+    "@inquirer/prompts": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.24.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

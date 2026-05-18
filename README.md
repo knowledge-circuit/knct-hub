@@ -2,37 +2,44 @@
 
 Smart context injection for AI coding agents. Per-project, hook-driven, observable.
 
-## Logging spike
+## Monorepo layout
 
-The current state is a minimal FastAPI server that logs every Claude Code hook event to a global SQLite database. No context is injected yet — the spike only observes.
-
-### Install
-
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e .
+```
+knct-hub/
+├── server/    # FastAPI hub server (Python).  Run locally or deploy.
+├── cli/       # @knct/cli — npx-installable CLI (TypeScript).
+├── .knct/     # this repo's own knct config (we dogfood)
+└── .claude/   # this repo's own Claude Code hook wiring
 ```
 
-### Run
+See [`server/`](./server) and [`cli/`](./cli) for component-level docs.
+
+## Quick start
+
+Run the hub locally:
 
 ```bash
-python -m knct_hub
+cd server
+uv run python -m knct_hub          # listens on http://127.0.0.1:8765
 ```
 
-Server listens on `http://127.0.0.1:8765`.
+Database lives at `~/.knct/hub.db` (auto-created on first request).
 
-### Database
-
-Events are persisted to `~/.knct/hub.db` (auto-created on first request).
-
-### Inspect traces
+In any repo you want to wire up:
 
 ```bash
-curl http://localhost:8765/traces        # last 100 events, JSON
+npx @knct/cli init
+```
+
+This writes `.knct/config.toml` and `.claude/settings.json`. Restart Claude Code to pick up the hooks.
+
+## Inspect traces
+
+```bash
 curl 'http://localhost:8765/traces?limit=10'
 sqlite3 ~/.knct/hub.db 'select ts, event, tool_name from traces order by ts desc limit 20'
 ```
 
-### Wiring
+## Status
 
-This repo's `.claude/settings.json` already points Claude Code hooks at the local server for `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, and `Stop`. Start the server before opening the repo in Claude Code and traces will accumulate.
+Early. The injection engine works end-to-end (skills, rules, dedupe). The CLI handles initial wiring. There is no auth, no UI, and no published npm package yet.
