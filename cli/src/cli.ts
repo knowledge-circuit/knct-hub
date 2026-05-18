@@ -29,7 +29,7 @@ function kebabize(s: string): string {
 async function fetchProjects(hubUrl: string): Promise<Project[]> {
   let res: Response;
   try {
-    res = await fetch(`${hubUrl}/projects`);
+    res = await fetch(`${hubUrl}/api/v1/projects`);
   } catch (err) {
     throw new Error(
       `Could not reach hub at ${hubUrl}. Is the server running? ` +
@@ -43,7 +43,7 @@ async function fetchProjects(hubUrl: string): Promise<Project[]> {
 }
 
 async function createProject(hubUrl: string, slug: string): Promise<void> {
-  const res = await fetch(`${hubUrl}/projects`, {
+  const res = await fetch(`${hubUrl}/api/v1/projects`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ slug }),
@@ -108,7 +108,7 @@ async function writeClaudeSettings(
     hooks: [
       {
         type: "http",
-        url: `${hubUrl}/hook`,
+        url: `${hubUrl}/api/v1/hook`,
         headers: { "X-Project-Slug": slug },
       },
     ],

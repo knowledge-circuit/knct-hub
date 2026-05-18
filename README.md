@@ -23,7 +23,7 @@ cd server
 uv run python -m knct_hub          # listens on http://127.0.0.1:8765
 ```
 
-Database lives at `~/.knct/hub.db` (auto-created on first request).
+All endpoints live under `/api/v1/...`. Database lives at `~/.knct/hub.db` (SQLite by default; Postgres supported via `KNCT_DATABASE_URL`).
 
 In any repo you want to wire up:
 
@@ -36,7 +36,7 @@ This writes `.knct/config.toml` and `.claude/settings.json`. Restart Claude Code
 ## Inspect traces
 
 ```bash
-curl 'http://localhost:8765/traces?limit=10'
+curl 'http://localhost:8765/api/v1/traces?limit=10'
 sqlite3 ~/.knct/hub.db 'select ts, event, tool_name from traces order by ts desc limit 20'
 ```
 

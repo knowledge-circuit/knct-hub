@@ -2,6 +2,8 @@
 
 CLI for [knct-hub](../). Links a repository to a hub project so Claude Code's hooks know where to send events.
 
+The CLI talks to the hub under `/api/v1/...` and writes hook URLs that point at `<hub>/api/v1/hook`.
+
 ## Usage
 
 ```bash

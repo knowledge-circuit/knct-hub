@@ -1,10 +1,16 @@
 import uvicorn
 
-from knct_hub.server import app
+from knct_hub.config import get_settings
 
 
 def main() -> None:
-    uvicorn.run(app, host="127.0.0.1", port=8765)
+    settings = get_settings()
+    uvicorn.run(
+        "knct_hub.app:app",
+        host=settings.host,
+        port=settings.port,
+        log_level=settings.log_level.lower(),
+    )
 
 
 if __name__ == "__main__":
