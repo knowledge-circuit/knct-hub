@@ -43,6 +43,20 @@ npm run build                                     # bundle to dist/cli.js
 node dist/cli.js init                             # run the built bundle
 ```
 
+### Running locally as `knct`
+
+To use `knct` as a real command on your PATH before the package is published:
+
+```bash
+cd cli
+npm link              # symlinks `knct` globally
+knct init             # runs from any directory
+# undo with:
+npm unlink -g @knct/cli
+```
+
+The hub must be running first (`cd ../server && uv run python -m knct_hub`).
+
 ## Publish (manual, not yet wired)
 
 ```bash
