@@ -4,12 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "knct-hub"
-version = "0.0.1"
-description = "Smart context injection for AI coding agents — logging spike."
+version = "0.0.2"
+description = "Smart context injection for AI coding agents."
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.27",
+    "sqlmodel>=0.0.22",
+    "alembic>=1.13",
+    "aiosqlite>=0.20",
+    "asyncpg>=0.29",
+    "greenlet>=3.0",
+    "pydantic-settings>=2.5",
 ]
 
 [tool.setuptools.packages.find]
