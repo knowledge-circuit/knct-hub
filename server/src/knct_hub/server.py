@@ -1,4 +1,5 @@
 import json
+import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from fnmatch import fnmatch
@@ -6,6 +7,8 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
+
+SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 
 # ---------- storage ----------
@@ -300,6 +303,39 @@ def traces(limit: int = 100) -> list[dict]:
                     pass
         out.append(d)
     return out
+
+
+# ---------- Projects ----------
+
+
+class ProjectCreate(BaseModel):
+    slug: str
+
+
+@app.get("/projects")
+def list_projects() -> list[dict]:
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT slug, created_at FROM projects ORDER BY created_at ASC"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+@app.post("/projects", status_code=201)
+def create_project(body: ProjectCreate) -> dict:
+    if not SLUG_RE.match(body.slug):
+        raise HTTPException(status_code=400, detail="invalid slug")
+    now = datetime.now(timezone.utc).isoformat()
+    with connect() as conn:
+        exists = conn.execute(
+            "SELECT 1 FROM projects WHERE slug=?", (body.slug,)
+        ).fetchone()
+        if exists:
+            raise HTTPException(status_code=409, detail="slug already exists")
+        conn.execute(
+            "INSERT INTO projects (slug, created_at) VALUES (?, ?)", (body.slug, now)
+        )
+    return {"slug": body.slug, "created_at": now}
 
 
 # ---------- CRUD: skills ----------
