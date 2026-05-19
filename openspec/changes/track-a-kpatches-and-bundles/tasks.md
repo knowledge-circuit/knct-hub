@@ -1,24 +1,24 @@
 ## 1. Data model & migrations
 
-- [ ] 1.1 Author Alembic revision adding tables: `orgs`, `org_members`, `bundles`, `kpatches`, `triggers`, `device_tokens`, `users`
-- [ ] 1.2 Same revision: add `org_id`, `access_mode`, `members`, `disabled_kpatch_ids`, `overridden_kpatches`, `attached_bundles` columns to `projects`
-- [ ] 1.3 Same revision: drop `rules` and `skills` tables after exporting snapshot to JSON for ops
-- [ ] 1.4 Same revision: re-key `session_dedupe` rows from `rule_id` to `trigger_id` (or recreate fresh if migration data is unavailable)
-- [ ] 1.5 Verify migration up + down on a seeded dev database
+- [x] 1.1 Author Alembic revision adding tables: `orgs`, `org_members`, `bundles`, `kpatches`, `triggers`, `device_tokens`, `users`
+- [x] 1.2 Same revision: add `org_id`, `access_mode`, `members`, `disabled_kpatch_ids`, `overridden_kpatches`, `attached_bundles` columns to `projects`
+- [x] 1.3 Same revision: drop `rules` and `skills` tables after exporting snapshot to JSON for ops
+- [x] 1.4 Same revision: re-key `session_dedupe` rows from `rule_id` to `trigger_id` (or recreate fresh if migration data is unavailable)
+- [x] 1.5 Verify migration up + down on a seeded dev database
 
 ## 2. Engine + protocol
 
-- [ ] 2.1 Implement kpatch CRUD endpoints under `/api/v1/orgs/{org}/kpatches`
-- [ ] 2.2 Implement trigger CRUD endpoints under `/api/v1/orgs/{org}/kpatches/{kpatch_id}/triggers`
-- [ ] 2.3 Implement kpatch markdown importer (parser + endpoint + optional default-trigger creation)
-- [ ] 2.4 Implement bundle CRUD endpoints with cross-org reference guard and monotonic version check
-- [ ] 2.5 Implement org CRUD endpoints and `org_members` management with last-Owner guard
-- [ ] 2.6 Implement project-access endpoints (`access_mode`, `members[]`) and silent-join logic on hook ingress
-- [ ] 2.7 Implement bundle-inheritance resolver (community → org → project, dedupe-first, apply disabled and overrides)
-- [ ] 2.8 Rewrite trigger evaluator to consume the resolved kpatch set; add case-insensitive `prompt_contains` substring match
-- [ ] 2.9 Add `UserPromptSubmit` Claude Code hook handler that maps to the new `user_prompt` event end-to-end through the resolver and evaluator
-- [ ] 2.10 Update project auto-registration to scope by caller org and require authentication outside solo mode
-- [ ] 2.11 Confirm `context-injection` wire shape and `hook-logging` traces still record `payload` + `response` correctly
+- [x] 2.1 Implement kpatch CRUD endpoints under `/api/v1/orgs/{org}/kpatches`
+- [x] 2.2 Implement trigger CRUD endpoints under `/api/v1/orgs/{org}/kpatches/{kpatch_id}/triggers`
+- [x] 2.3 Implement kpatch markdown importer (parser + endpoint + optional default-trigger creation)
+- [x] 2.4 Implement bundle CRUD endpoints with cross-org reference guard and monotonic version check
+- [x] 2.5 Implement org CRUD endpoints and `org_members` management with last-Owner guard
+- [x] 2.6 Implement project-access endpoints (`access_mode`, `members[]`) and silent-join logic on hook ingress
+- [x] 2.7 Implement bundle-inheritance resolver (community → org → project, dedupe-first, apply disabled and overrides)
+- [x] 2.8 Rewrite trigger evaluator to consume the resolved kpatch set; add case-insensitive `prompt_contains` substring match
+- [x] 2.9 Add `UserPromptSubmit` Claude Code hook handler that maps to the new `user_prompt` event end-to-end through the resolver and evaluator
+- [x] 2.10 Update project auto-registration to scope by caller org and require authentication outside solo mode
+- [x] 2.11 Confirm `context-injection` wire shape and `hook-logging` traces still record `payload` + `response` correctly
 
 ## 3. Auth + deployment
 

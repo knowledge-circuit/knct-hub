@@ -2,18 +2,20 @@ import json
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from knct_hub.db.models import Trace
 from knct_hub.db.session import get_session
+from knct_hub.services.auth import Caller, resolve_caller
 from knct_hub.services.injection import (
     handle_post_compact,
     handle_pre_tool,
     handle_prompt_submit,
     handle_session_start,
 )
-from knct_hub.services.projects import ensure_project
+from knct_hub.services.orgs import get_org
+from knct_hub.services.projects import authorize_hook, ensure_project
 
 router = APIRouter()
 
@@ -44,7 +46,9 @@ async def _insert_trace(
 
 @router.post("/hook")
 async def hook(
-    request: Request, session: AsyncSession = Depends(get_session)
+    request: Request,
+    caller: Caller = Depends(resolve_caller),
+    session: AsyncSession = Depends(get_session),
 ) -> dict:
     try:
         payload = await request.json()
@@ -54,17 +58,19 @@ async def hook(
         payload = {"_raw": payload}
 
     slug = _slug_from(request)
-    await ensure_project(session, slug)
+    org = await get_org(session, caller.active_org_id)
+    project = await ensure_project(session, org.id, slug)
+    project = await authorize_hook(session, project, caller.user_id)
 
     event = payload.get("hook_event_name")
     if event == "SessionStart":
-        resp = await handle_session_start(session, slug, payload)
+        resp = await handle_session_start(session, org, project, payload)
     elif event == "UserPromptSubmit":
-        resp = await handle_prompt_submit(session, slug, payload)
+        resp = await handle_prompt_submit(session, org, project, payload)
     elif event == "PreToolUse":
-        resp = await handle_pre_tool(session, slug, payload)
+        resp = await handle_pre_tool(session, org, project, payload)
     elif event == "PostCompact":
-        resp = await handle_post_compact(session, slug, payload)
+        resp = await handle_post_compact(session, org, project, payload)
     else:
         resp = {}
 

@@ -9,7 +9,7 @@ from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from knct_hub.api import hooks, projects, rules, skills
+from knct_hub.api import bundles, hooks, kpatches, orgs, projects
 from knct_hub.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -64,7 +64,14 @@ def create_app() -> FastAPI:
     def _health() -> dict:
         return {"ok": True}
 
-    for router in (hooks.router, projects.router, skills.router, rules.router, health):
+    for router in (
+        hooks.router,
+        orgs.router,
+        kpatches.router,
+        bundles.router,
+        projects.router,
+        health,
+    ):
         app.include_router(router, prefix="/api/v1")
 
     dist = Path(settings.dashboard_dist)

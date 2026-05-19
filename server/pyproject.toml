@@ -16,6 +16,7 @@ dependencies = [
     "asyncpg>=0.29",
     "greenlet>=3.0",
     "pydantic-settings>=2.5",
+    "pyyaml>=6.0",
 ]
 
 [tool.setuptools.packages.find]

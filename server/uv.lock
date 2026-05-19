@@ -304,7 +304,7 @@ wheels = [
 
 [[package]]
 name = "knct-hub"
-version = "0.0.2"
+version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
@@ -313,6 +313,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "greenlet" },
     { name = "pydantic-settings" },
+    { name = "pyyaml" },
     { name = "sqlmodel" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -325,6 +326,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.110" },
     { name = "greenlet", specifier = ">=3.0" },
     { name = "pydantic-settings", specifier = ">=2.5" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "sqlmodel", specifier = ">=0.0.22" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.27" },
 ]

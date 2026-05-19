@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
+from sqlalchemy import ForeignKeyConstraint, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -8,42 +9,108 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class Project(SQLModel, table=True):
-    __tablename__ = "projects"
+class User(SQLModel, table=True):
+    __tablename__ = "users"
 
-    slug: str = Field(primary_key=True)
+    id: str = Field(primary_key=True)
+    clerk_id: Optional[str] = Field(default=None, unique=True, index=True)
     created_at: datetime = Field(default_factory=_utcnow)
 
 
-class Skill(SQLModel, table=True):
-    __tablename__ = "skills"
+class Org(SQLModel, table=True):
+    __tablename__ = "orgs"
 
-    project_slug: str = Field(primary_key=True, foreign_key="projects.slug")
+    id: str = Field(primary_key=True)
+    name: str
+    created_at: datetime = Field(default_factory=_utcnow)
+    # JSON-encoded ordered list of bundle ids.
+    default_bundles: str = Field(default="[]")
+
+
+class OrgMember(SQLModel, table=True):
+    __tablename__ = "org_members"
+
+    org_id: str = Field(primary_key=True, foreign_key="orgs.id")
+    user_id: str = Field(primary_key=True, foreign_key="users.id")
+    role: str = Field(default="member")  # owner | admin | member
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
+class Project(SQLModel, table=True):
+    __tablename__ = "projects"
+
+    org_id: str = Field(primary_key=True, foreign_key="orgs.id")
+    slug: str = Field(primary_key=True)
+    created_at: datetime = Field(default_factory=_utcnow)
+    access_mode: str = Field(default="org")  # "org" | "invite_only"
+    # JSON-encoded arrays.
+    members: str = Field(default="[]")
+    attached_bundles: str = Field(default="[]")
+    disabled_kpatch_ids: str = Field(default="[]")
+    overridden_kpatches: str = Field(default="[]")
+
+
+class Kpatch(SQLModel, table=True):
+    __tablename__ = "kpatches"
+
+    org_id: str = Field(primary_key=True, foreign_key="orgs.id")
     id: str = Field(primary_key=True)
     name: str
     description: Optional[str] = None
     body: str
-    # Stored as JSON-encoded TEXT to keep schema portable across SQLite & Postgres.
-    keywords: str = Field(default="[]")
+    keywords: str = Field(default="[]")  # JSON
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
 
 
-class Rule(SQLModel, table=True):
-    __tablename__ = "rules"
+class Trigger(SQLModel, table=True):
+    __tablename__ = "triggers"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["kpatch_org_id", "kpatch_id"],
+            ["kpatches.org_id", "kpatches.id"],
+            ondelete="CASCADE",
+        ),
+    )
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_slug: str = Field(foreign_key="projects.slug", index=True)
-    on_event: str = Field(index=True)
-    match: Optional[str] = None
-    # JSON-encoded array of skill ids.
-    inject: str = Field(default="[]")
+    kpatch_org_id: str = Field(index=True)
+    kpatch_id: str = Field(index=True)
+    event: str = Field(index=True)  # session_start | user_prompt | pre_tool_use
+    # JSON-encoded array of strings; only meaningful for event=user_prompt.
+    prompt_contains: Optional[str] = Field(default=None)
+    path_match: Optional[str] = Field(default=None)
     once_per_session: bool = Field(default=False)
+
+
+class Bundle(SQLModel, table=True):
+    __tablename__ = "bundles"
+
+    org_id: str = Field(primary_key=True, foreign_key="orgs.id")
+    id: str = Field(primary_key=True)
+    name: str
+    version: str  # semver string
+    kpatch_ids: str = Field(default="[]")  # JSON ordered list
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
+
+
+class DeviceToken(SQLModel, table=True):
+    __tablename__ = "device_tokens"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: str = Field(foreign_key="users.id", index=True)
+    token_hash: str = Field(unique=True, index=True)
+    created_at: datetime = Field(default_factory=_utcnow)
+    last_used_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
 
 
 class SessionDedupe(SQLModel, table=True):
     __tablename__ = "session_dedupe"
 
     session_id: str = Field(primary_key=True)
-    rule_id: int = Field(primary_key=True, foreign_key="rules.id")
+    trigger_id: int = Field(primary_key=True, foreign_key="triggers.id")
     fired_at: datetime = Field(default_factory=_utcnow)
 
 
