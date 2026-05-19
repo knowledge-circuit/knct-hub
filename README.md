@@ -66,6 +66,27 @@ npx @knct/cli init
 
 This writes `.knct/config.toml` and `.claude/settings.json`. Restart Claude Code to pick up the hooks.
 
+## Authoring skills
+
+Skills can be created in the dashboard's New-skill dialog, or imported from a markdown file with YAML frontmatter. The dashboard's Skills page has an **Import** button and a drop area that accept a `.md` file shaped like:
+
+```markdown
+---
+id: my-skill                  # required, kebab-case
+name: My skill                # required
+description: One-liner...     # optional
+keywords:                     # optional
+  - one
+  - another
+---
+
+# Skill body in markdown
+
+The body below the closing `---` becomes the skill's `body`.
+```
+
+See [`skills/commit-with-linear-refs.md`](./skills/commit-with-linear-refs.md) for a real example.
+
 ## Inspect traces
 
 ```bash

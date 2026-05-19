@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type Skill } from "@/lib/api";
+import { parseSkillMd, type ParsedSkill } from "@/lib/skill-import";
+import { SkillImportDialog } from "@/components/skill-import-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,17 +37,77 @@ export function SkillsPage() {
     enabled: !!slug,
   });
   const [editing, setEditing] = useState<Editing>(null);
+  const [imported, setImported] = useState<ParsedSkill | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const del = useMutation({
     mutationFn: (id: string) => api.deleteSkill(slug!, id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["skills", slug] }),
   });
 
+  const handleFile = async (file: File) => {
+    setImportError(null);
+    if (!file.name.toLowerCase().endsWith(".md")) {
+      setImportError("Only .md files are supported.");
+      return;
+    }
+    const text = await file.text();
+    const result = parseSkillMd(text);
+    if (!result.ok) {
+      setImportError(result.error);
+      return;
+    }
+    setImported(result.skill);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Skills</h2>
-        <Button onClick={() => setEditing({ mode: "create" })}>New skill</Button>
+        <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".md,text/markdown"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+              e.target.value = "";
+            }}
+          />
+          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+            Import
+          </Button>
+          <Button onClick={() => setEditing({ mode: "create" })}>New skill</Button>
+        </div>
+      </div>
+
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          const f = e.dataTransfer.files?.[0];
+          if (f) handleFile(f);
+        }}
+        className={`border-2 border-dashed rounded-md p-4 text-sm transition-colors ${
+          dragOver ? "border-primary bg-accent/40" : "border-border"
+        }`}
+      >
+        <p className="text-muted-foreground">
+          Drop a <code className="font-mono">.md</code> file here, or click{" "}
+          <span className="font-medium">Import</span>. The file must start with a YAML
+          frontmatter block containing <code className="font-mono">id</code> and{" "}
+          <code className="font-mono">name</code>.
+        </p>
+        {importError && <p className="mt-2 text-destructive">{importError}</p>}
       </div>
 
       <Table>
@@ -98,6 +160,14 @@ export function SkillsPage() {
           slug={slug!}
           editing={editing}
           onClose={() => setEditing(null)}
+        />
+      )}
+
+      {imported && (
+        <SkillImportDialog
+          slug={slug!}
+          parsed={imported}
+          onClose={() => setImported(null)}
         />
       )}
     </div>

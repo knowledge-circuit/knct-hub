@@ -4,3 +4,5 @@ __pycache__/
 
 # Docker compose data volume
 data/
+
+.DS_Store
