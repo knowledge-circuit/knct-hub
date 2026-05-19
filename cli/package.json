@@ -1,6 +1,6 @@
 {
   "name": "@knct/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI for knct-hub — link a repo to a hub project.",
   "type": "module",
   "license": "Apache-2.0",
