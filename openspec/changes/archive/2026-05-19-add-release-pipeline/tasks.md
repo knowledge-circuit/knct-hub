@@ -33,12 +33,12 @@
 
 ## 6. Cut the first releases
 
-- [ ] 6.1 `cd server && uvx bump-my-version bump minor --new-version 0.1.0` → produces commit + `v0.1.0` tag
-- [ ] 6.2 `cd cli && uvx bump-my-version bump minor --new-version 0.1.0` → produces commit + `cli-v0.1.0` tag
-- [ ] 6.3 `git push --follow-tags`
-- [ ] 6.4 Watch the Actions runs. Confirm `:v0.1.0`, `:0.1`, `:latest`, `:edge`, `:sha-…` tags appear at https://github.com/knowledge-circuit/knct-hub/pkgs/container/knct-hub
-- [ ] 6.5 Confirm `@knct/cli@0.1.0` appears at https://www.npmjs.com/package/@knct/cli
-- [ ] 6.6 If first npm publish claimed the scope under your user, transfer ownership to the `knct` org
+- [x] 6.1 `cd server && uvx bump-my-version bump minor --new-version 0.1.0` → produces commit + `v0.1.0` tag
+- [x] 6.2 `cd cli && uvx bump-my-version bump minor --new-version 0.1.0` → produces commit + `cli-v0.1.0` tag
+- [x] 6.3 `git push --follow-tags` (first push didn't fire tag events; deleted + re-pushed tags as workaround)
+- [x] 6.4 Image v0.1.0 published successfully at ghcr (tags `:v0.1.0`, `:0.1`, `:latest`, `:edge`, `:sha-…`)
+- [x] 6.5 `@knct/cli@0.1.1` published (cli-v0.1.0 failed at npm 403/422; fixed package.json with repository/license/homepage/bugs, bumped to 0.1.1, second publish succeeded)
+- [ ] 6.6 Transfer `@knct/cli` ownership to the `knct` npm org (manual one-time step; first publish may have claimed scope under personal user)
 
 ## 7. Docs
 
@@ -48,6 +48,6 @@
 
 ## 8. Smoke against the real registry
 
-- [ ] 8.1 `docker pull ghcr.io/knowledge-circuit/knct-hub:v0.1.0` works on a clean machine (or `docker rmi` first to force a real pull)
-- [ ] 8.2 `docker run --rm -p 8765:8765 ghcr.io/knowledge-circuit/knct-hub:v0.1.0` boots and `/api/v1/health` returns `{"ok": true}`
-- [ ] 8.3 `npx @knct/cli@0.1.0 init --hub http://localhost:8765` in a scratch directory completes end-to-end
+- [x] 8.1 `docker pull ghcr.io/knowledge-circuit/knct-hub:v0.1.0` works on a clean machine (verified by removing the local image and re-pulling)
+- [x] 8.2 `docker run --rm -p 8765:8765 ghcr.io/knowledge-circuit/knct-hub:v0.1.0` boots and `/api/v1/health` returns `{"ok": true}`
+- [x] 8.3 `pnpm dlx @knct/cli@0.1.1 init --hub http://localhost:8765` in a scratch directory completes end-to-end
