@@ -1,0 +1,24 @@
+**/.git
+**/.gitignore
+**/.venv
+**/__pycache__
+**/node_modules
+**/dist
+**/.DS_Store
+**/.env
+**/.env.local
+**/*.log
+
+# Keep server source but skip its venv/build artifacts
+server/.venv
+server/.pytest_cache
+
+# Dashboard: keep source; dist is rebuilt inside the image
+dashboard/dist
+dashboard/node_modules
+
+# OpenSpec and other docs aren't needed at runtime
+openspec
+.claude
+.knct
+idea.md

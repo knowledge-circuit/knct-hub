@@ -1,0 +1,10 @@
+services:
+  hub:
+    build: .
+    image: ghcr.io/knowledge-circuit/knct-hub:latest
+    container_name: knct-hub
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./data:/data

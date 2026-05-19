@@ -5,7 +5,9 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from knct_hub.api import hooks, projects, rules, skills
 from knct_hub.config import get_settings
@@ -31,10 +33,46 @@ async def lifespan(app: FastAPI):
     yield
 
 
+def _mount_dashboard(app: FastAPI, dist: Path) -> None:
+    """Serve the built dashboard at / with SPA fallback for client-side routes."""
+    assets = dist / "assets"
+    if assets.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets), name="assets")
+
+    index = dist / "index.html"
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa(full_path: str):
+        if full_path.startswith("api"):
+            raise HTTPException(status_code=404)
+        # Serve real files at root (favicon, robots.txt, etc.)
+        if full_path:
+            candidate = dist / full_path
+            if candidate.is_file():
+                return FileResponse(candidate)
+        return FileResponse(index)
+
+
 def create_app() -> FastAPI:
+    settings = get_settings()
     app = FastAPI(title="knct-hub", lifespan=lifespan)
-    for router in (hooks.router, projects.router, skills.router, rules.router):
+
+    # Health endpoint (under /api/v1 for consistency).
+    health = APIRouter()
+
+    @health.get("/health")
+    def _health() -> dict:
+        return {"ok": True}
+
+    for router in (hooks.router, projects.router, skills.router, rules.router, health):
         app.include_router(router, prefix="/api/v1")
+
+    dist = Path(settings.dashboard_dist)
+    if dist.is_dir() and (dist / "index.html").is_file():
+        _mount_dashboard(app, dist)
+    else:
+        logger.info("dashboard dist not found at %s; UI will not be served", dist)
+
     return app
 
 

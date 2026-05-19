@@ -9,6 +9,12 @@ def _default_db_url() -> str:
     return f"sqlite+aiosqlite:///{path}"
 
 
+def _default_dashboard_dist() -> str:
+    # server/src/knct_hub/config.py → server/ is parents[2]
+    server_root = Path(__file__).resolve().parents[2]
+    return str(server_root.parent / "dashboard" / "dist")
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -22,6 +28,7 @@ class Settings(BaseSettings):
     port: int = 8765
     auto_migrate: bool = True
     log_level: str = "INFO"
+    dashboard_dist: str = _default_dashboard_dist()
 
 
 @lru_cache(maxsize=1)
