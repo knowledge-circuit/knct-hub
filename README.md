@@ -2,17 +2,29 @@
 
 Smart context injection for AI coding agents. Per-project, hook-driven, observable.
 
+## Why knct-hub
+
+- **AGENTS.md is dumb accumulation.** Everything in the path gets merged into context, which degrades agent performance as repos grow.
+- **MCP is pull-based.** The model has to know to ask. Models forget or don't know what they don't know.
+- **knct-hub is push-based via hooks.** Deterministic, scoped, observable. Skills are injected only when the rules match.
+
+## Supported agents
+
+- **Claude Code** — supported. `npx @knct/cli init` wires the HTTP hooks in `.claude/settings.json`.
+- **opencode** — planned, not started. The hub already speaks a clean JSON contract; the work is the plugin wrapper.
+
 ## Monorepo layout
 
 ```
 knct-hub/
-├── server/    # FastAPI hub server (Python).  Run locally or deploy.
-├── cli/       # @knct/cli — npx-installable CLI (TypeScript).
-├── .knct/     # this repo's own knct config (we dogfood)
-└── .claude/   # this repo's own Claude Code hook wiring
+├── server/       # FastAPI hub server (Python).  Run locally or deploy.
+├── cli/          # @knct/cli — npx-installable CLI (TypeScript).
+├── dashboard/    # React + Vite + Tailwind admin UI (WIP, dev-mode only).
+├── .knct/        # this repo's own knct config (we dogfood)
+└── .claude/      # this repo's own Claude Code hook wiring
 ```
 
-See [`server/`](./server) and [`cli/`](./cli) for component-level docs.
+See [`server/`](./server), [`cli/`](./cli), and [`dashboard/`](./dashboard) for component-level docs.
 
 ## Quick start
 
@@ -33,6 +45,14 @@ npx @knct/cli init
 
 This writes `.knct/config.toml` and `.claude/settings.json`. Restart Claude Code to pick up the hooks.
 
+Run the dashboard (optional, for skill/rule CRUD and trace viewing):
+
+```bash
+cd dashboard
+npm install
+npm run dev                        # http://localhost:5173, proxies /api → :8765
+```
+
 ## Inspect traces
 
 ```bash
@@ -40,6 +60,8 @@ curl 'http://localhost:8765/api/v1/traces?limit=10'
 sqlite3 ~/.knct/hub.db 'select ts, event, tool_name from traces order by ts desc limit 20'
 ```
 
+Or open the dashboard's traces page.
+
 ## Status
 
-Early. The injection engine works end-to-end (skills, rules, dedupe). The CLI handles initial wiring. There is no auth, no UI, and no published npm package yet.
+Early. What works end-to-end: injection engine (skills, rules, dedupe), CLI initial wiring, and a dashboard with projects/skills/rules/traces CRUD. What's missing: auth, no published `@knct/cli` on npm, dashboard not yet bundled into the server (run as separate dev process), no opencode plugin.
