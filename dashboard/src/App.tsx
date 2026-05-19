@@ -1,30 +1,43 @@
 import { Link, NavLink, Navigate, Route, Routes, useParams } from "react-router-dom";
+import { OrgsPage } from "@/pages/orgs";
+import { KpatchesPage } from "@/pages/kpatches";
+import { KpatchDetailPage } from "@/pages/kpatch-detail";
+import { BundlesPage } from "@/pages/bundles";
 import { ProjectsPage } from "@/pages/projects";
-import { SkillsPage } from "@/pages/skills";
-import { RulesPage } from "@/pages/rules";
+import { ProjectDetailPage } from "@/pages/project-detail";
+import { MembersPage } from "@/pages/members";
+import { CommunityPage } from "@/pages/community";
 import { TracesPage } from "@/pages/traces";
 
-function ProjectLayout() {
-  const { slug } = useParams<{ slug: string }>();
+function OrgLayout() {
+  const { org } = useParams<{ org: string }>();
   const nav = [
-    { to: `/p/${slug}/skills`, label: "Skills" },
-    { to: `/p/${slug}/rules`, label: "Rules" },
-    { to: `/p/${slug}/traces`, label: "Traces" },
+    { to: `/o/${org}/kpatches`, label: "Kpatches" },
+    { to: `/o/${org}/bundles`, label: "Bundles" },
+    { to: `/o/${org}/projects`, label: "Projects" },
+    { to: `/o/${org}/members`, label: "Members" },
+    { to: `/o/${org}/community`, label: "Community" },
+    { to: `/o/${org}/traces`, label: "Traces" },
   ];
   return (
     <div className="flex min-h-screen">
       <aside className="w-56 border-r p-4 space-y-1">
-        <Link to="/" className="block text-sm text-muted-foreground mb-2 hover:underline">
-          ← projects
+        <Link
+          to="/"
+          className="block text-sm text-muted-foreground mb-2 hover:underline"
+        >
+          ← orgs
         </Link>
-        <div className="text-sm font-medium mb-2">{slug}</div>
+        <div className="text-sm font-medium mb-2 font-mono">{org}</div>
         {nav.map((n) => (
           <NavLink
             key={n.to}
             to={n.to}
             className={({ isActive }) =>
               `block px-2 py-1 rounded text-sm ${
-                isActive ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+                isActive
+                  ? "bg-accent text-accent-foreground"
+                  : "hover:bg-accent/50"
               }`
             }
           >
@@ -34,9 +47,14 @@ function ProjectLayout() {
       </aside>
       <main className="flex-1 p-6">
         <Routes>
-          <Route index element={<Navigate to="skills" replace />} />
-          <Route path="skills" element={<SkillsPage />} />
-          <Route path="rules" element={<RulesPage />} />
+          <Route index element={<Navigate to="kpatches" replace />} />
+          <Route path="kpatches" element={<KpatchesPage />} />
+          <Route path="kpatches/:id" element={<KpatchDetailPage />} />
+          <Route path="bundles" element={<BundlesPage />} />
+          <Route path="projects" element={<ProjectsPage />} />
+          <Route path="projects/:slug" element={<ProjectDetailPage />} />
+          <Route path="members" element={<MembersPage />} />
+          <Route path="community" element={<CommunityPage />} />
           <Route path="traces" element={<TracesPage />} />
         </Routes>
       </main>
@@ -47,8 +65,8 @@ function ProjectLayout() {
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<ProjectsPage />} />
-      <Route path="/p/:slug/*" element={<ProjectLayout />} />
+      <Route path="/" element={<OrgsPage />} />
+      <Route path="/o/:org/*" element={<OrgLayout />} />
     </Routes>
   );
 }

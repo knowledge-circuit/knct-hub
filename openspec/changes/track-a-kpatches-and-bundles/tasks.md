@@ -34,13 +34,13 @@
 
 ## 4. Dashboard
 
-- [ ] 4.1 Replace Skills page with Kpatches list/create/edit (org-scoped)
-- [ ] 4.2 Trigger management UI per kpatch (list, create, edit, delete)
-- [ ] 4.3 Kpatch import UI (Import button + drop area) reusing the preview dialog
-- [ ] 4.4 Bundles page: list, create, add/remove kpatches, version field
-- [ ] 4.5 Org settings: members + roles, default bundles list (Admin+)
-- [ ] 4.6 Project settings: attached bundles, access mode toggle, members list, disabled kpatches, overridden kpatches
-- [ ] 4.7 Community page: browse community bundles, Import to org (Owner/Admin only)
+- [x] 4.1 Replace Skills page with Kpatches list/create/edit (org-scoped)
+- [x] 4.2 Trigger management UI per kpatch (list, create, edit, delete)
+- [x] 4.3 Kpatch import UI (Import button + drop area) reusing the preview dialog
+- [x] 4.4 Bundles page: list, create, add/remove kpatches, version field
+- [x] 4.5 Org settings: members + roles, default bundles list (Admin+)
+- [x] 4.6 Project settings: attached bundles, access mode toggle, members list, disabled kpatches, overridden kpatches
+- [x] 4.7 Community page: browse community bundles, Import to org (Owner/Admin only)
 - [ ] 4.8 Clerk sign-in integration on the dashboard with GitHub OAuth enabled
 - [ ] 4.9 Hide team/community surfaces in solo mode (probe server mode at boot)
 

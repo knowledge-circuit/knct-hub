@@ -9,6 +9,13 @@ keywords:
   - git commit
   - "refs "
   - linear id
+trigger:
+  event: user_prompt
+  prompt_contains:
+    - commit
+    - committing
+    - committed
+    - git commit
 ---
 
 # Commit with Linear project refs

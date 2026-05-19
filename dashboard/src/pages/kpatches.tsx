@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type Skill } from "@/lib/api";
-import { parseSkillMd, type ParsedSkill } from "@/lib/skill-import";
-import { SkillImportDialog } from "@/components/skill-import-dialog";
+import { api, type Kpatch } from "@/lib/api";
+import { parseKpatchMd, type ParsedKpatch } from "@/lib/kpatch-import";
+import { KpatchImportDialog } from "@/components/kpatch-import-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,28 +23,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-type Editing =
-  | { mode: "create" }
-  | { mode: "edit"; skill: Skill }
-  | null;
+type Editing = { mode: "create" } | { mode: "edit"; kpatch: Kpatch } | null;
 
-export function SkillsPage() {
-  const { slug } = useParams<{ slug: string }>();
+export function KpatchesPage() {
+  const { org } = useParams<{ org: string }>();
   const qc = useQueryClient();
   const { data } = useQuery({
-    queryKey: ["skills", slug],
-    queryFn: () => api.listSkills(slug!),
-    enabled: !!slug,
+    queryKey: ["kpatches", org],
+    queryFn: () => api.listKpatches(org!),
+    enabled: !!org,
   });
   const [editing, setEditing] = useState<Editing>(null);
-  const [imported, setImported] = useState<ParsedSkill | null>(null);
+  const [parsed, setParsed] = useState<ParsedKpatch | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const del = useMutation({
-    mutationFn: (id: string) => api.deleteSkill(slug!, id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["skills", slug] }),
+    mutationFn: (id: string) => api.deleteKpatch(org!, id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["kpatches", org] }),
   });
 
   const handleFile = async (file: File) => {
@@ -53,22 +50,21 @@ export function SkillsPage() {
       setImportError("Only .md files are supported.");
       return;
     }
-    const text = await file.text();
-    const result = parseSkillMd(text);
+    const result = parseKpatchMd(await file.text());
     if (!result.ok) {
       setImportError(result.error);
       return;
     }
-    setImported(result.skill);
+    setParsed(result.kpatch);
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Skills</h2>
+        <h2 className="text-xl font-semibold">Kpatches</h2>
         <div className="flex gap-2">
           <input
-            ref={fileInputRef}
+            ref={fileRef}
             type="file"
             accept=".md,text/markdown"
             className="hidden"
@@ -78,10 +74,10 @@ export function SkillsPage() {
               e.target.value = "";
             }}
           />
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+          <Button variant="outline" onClick={() => fileRef.current?.click()}>
             Import
           </Button>
-          <Button onClick={() => setEditing({ mode: "create" })}>New skill</Button>
+          <Button onClick={() => setEditing({ mode: "create" })}>New kpatch</Button>
         </div>
       </div>
 
@@ -105,7 +101,8 @@ export function SkillsPage() {
           Drop a <code className="font-mono">.md</code> file here, or click{" "}
           <span className="font-medium">Import</span>. The file must start with a YAML
           frontmatter block containing <code className="font-mono">id</code> and{" "}
-          <code className="font-mono">name</code>.
+          <code className="font-mono">name</code>. Optional <code className="font-mono">trigger</code>{" "}
+          block creates a default trigger.
         </p>
         {importError && <p className="mt-2 text-destructive">{importError}</p>}
       </div>
@@ -116,36 +113,43 @@ export function SkillsPage() {
             <TableHead>ID</TableHead>
             <TableHead>Name</TableHead>
             <TableHead>Keywords</TableHead>
-            <TableHead className="w-32 text-right">Actions</TableHead>
+            <TableHead className="w-40 text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {data?.length === 0 && (
             <TableRow>
               <TableCell colSpan={4} className="text-muted-foreground text-center">
-                No skills yet.
+                No kpatches yet.
               </TableCell>
             </TableRow>
           )}
-          {data?.map((s) => (
-            <TableRow key={s.id}>
-              <TableCell className="font-mono text-xs">{s.id}</TableCell>
-              <TableCell>{s.name}</TableCell>
+          {data?.map((k) => (
+            <TableRow key={k.id}>
+              <TableCell className="font-mono text-xs">
+                <Link
+                  to={`/o/${org}/kpatches/${k.id}`}
+                  className="hover:underline"
+                >
+                  {k.id}
+                </Link>
+              </TableCell>
+              <TableCell>{k.name}</TableCell>
               <TableCell className="text-muted-foreground text-xs">
-                {s.keywords.join(", ")}
+                {k.keywords.join(", ")}
               </TableCell>
               <TableCell className="text-right space-x-2">
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setEditing({ mode: "edit", skill: s })}
+                  onClick={() => setEditing({ mode: "edit", kpatch: k })}
                 >
                   Edit
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => confirm(`Delete ${s.id}?`) && del.mutate(s.id)}
+                  onClick={() => confirm(`Delete ${k.id}?`) && del.mutate(k.id)}
                 >
                   Delete
                 </Button>
@@ -156,59 +160,52 @@ export function SkillsPage() {
       </Table>
 
       {editing && (
-        <SkillDialog
-          slug={slug!}
+        <KpatchDialog
+          org={org!}
           editing={editing}
           onClose={() => setEditing(null)}
         />
       )}
-
-      {imported && (
-        <SkillImportDialog
-          slug={slug!}
-          parsed={imported}
-          onClose={() => setImported(null)}
+      {parsed && (
+        <KpatchImportDialog
+          org={org!}
+          parsed={parsed}
+          onClose={() => setParsed(null)}
         />
       )}
     </div>
   );
 }
 
-function SkillDialog({
-  slug,
+function KpatchDialog({
+  org,
   editing,
   onClose,
 }: {
-  slug: string;
+  org: string;
   editing: Exclude<Editing, null>;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
   const isCreate = editing.mode === "create";
-  const [id, setId] = useState(isCreate ? "" : editing.skill.id);
-  const [name, setName] = useState(isCreate ? "" : editing.skill.name);
-  const [description, setDescription] = useState(
-    isCreate ? "" : editing.skill.description ?? "",
-  );
-  const [body, setBody] = useState(isCreate ? "" : editing.skill.body);
-  const [keywords, setKeywords] = useState(
-    isCreate ? "" : editing.skill.keywords.join(", "),
-  );
+  const k = isCreate ? null : editing.kpatch;
+  const [id, setId] = useState(k?.id ?? "");
+  const [name, setName] = useState(k?.name ?? "");
+  const [description, setDescription] = useState(k?.description ?? "");
+  const [body, setBody] = useState(k?.body ?? "");
+  const [keywords, setKeywords] = useState(k?.keywords.join(", ") ?? "");
   const [err, setErr] = useState<string | null>(null);
 
   const save = useMutation({
     mutationFn: () =>
-      api.upsertSkill(slug, id, {
+      api.upsertKpatch(org, id, {
         name,
         description: description || null,
         body,
-        keywords: keywords
-          .split(",")
-          .map((k) => k.trim())
-          .filter(Boolean),
+        keywords: keywords.split(",").map((s) => s.trim()).filter(Boolean),
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["skills", slug] });
+      qc.invalidateQueries({ queryKey: ["kpatches", org] });
       onClose();
     },
     onError: (e: Error) => setErr(e.message),
@@ -218,7 +215,9 @@ function SkillDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>{isCreate ? "New skill" : `Edit ${editing.skill.id}`}</DialogTitle>
+          <DialogTitle>
+            {isCreate ? "New kpatch" : `Edit ${k!.id}`}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
@@ -228,7 +227,7 @@ function SkillDialog({
               value={id}
               onChange={(e) => setId(e.target.value)}
               disabled={!isCreate}
-              placeholder="payments"
+              placeholder="commit-conventions"
             />
           </div>
           <div className="space-y-1">
@@ -249,7 +248,7 @@ function SkillDialog({
               id="kw"
               value={keywords}
               onChange={(e) => setKeywords(e.target.value)}
-              placeholder="payment, retry"
+              placeholder="git, commit"
             />
           </div>
           <div className="space-y-1">
