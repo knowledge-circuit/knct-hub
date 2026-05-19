@@ -15,17 +15,14 @@ The system SHALL store on every project an `access_mode` (`"org"` | `"invite_onl
 - **WHEN** a new project is created without specifying access settings
 - **THEN** its `access_mode` is `"org"` and `members` is empty
 
-### Requirement: Project bundle and override fields
-The system SHALL store on every project:
-- `attached_bundles[]`: ordered array of bundle ids attached at the project level,
-- `disabled_kpatch_ids[]`: array of kpatch ids excluded from injection,
-- `overridden_kpatches[]`: array of kpatch records that replace inherited entries by id.
+### Requirement: No bundle / disable / override fields on projects
+Projects SHALL NOT carry `attached_bundles[]`, `disabled_kpatch_ids[]`, or `overridden_kpatches[]` fields. Project-scoped behavior (extra kpatches, disabling an inherited org kpatch, overriding one) is expressed by creating sibling kpatch rows at project scope per `kpatch-store` and resolved per `kpatch-resolution`.
 
-Semantics are defined by `bundle-inheritance`.
-
-#### Scenario: Defaults are empty arrays
-- **WHEN** a new project is created
-- **THEN** `attached_bundles`, `disabled_kpatch_ids`, and `overridden_kpatches` are all empty arrays
+#### Scenario: Disable an org kpatch on a project
+- **GIVEN** an org-scope kpatch `commit-conventions` exists
+- **WHEN** the project owner wants to suppress it on project `web`
+- **THEN** they create a kpatch at `(scope="project", org_id="acme", project_slug="web", slug="commit-conventions")` with `disable=true`
+- **AND** subsequent hooks on `web` no longer inject the org body for that slug
 
 ## MODIFIED Requirements
 

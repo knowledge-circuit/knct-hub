@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Org record shape
-The system SHALL store orgs with fields `id` (kebab-case string, globally unique), `name`, `created_at`, and `default_bundles` (ordered array of bundle ids inherited by every project in the org).
+The system SHALL store orgs with fields `id` (kebab-case string, globally unique), `name`, and `created_at`. Orgs do not carry a `default_bundles` or any bundle-attachment field — kpatches that apply across all projects in the org are created directly at org scope (see `kpatch-store`, `kpatch-resolution`).
 
 #### Scenario: Org persisted with required fields
 - **WHEN** an authenticated user creates an org with id `acme` and name `Acme Inc`
@@ -24,10 +24,3 @@ The system SHALL expose endpoints under `/api/v1/orgs` for create, list (only or
 #### Scenario: List returns only caller's orgs
 - **WHEN** a user GETs `/api/v1/orgs`
 - **THEN** the response contains exactly the orgs that include the user in `org_members`
-
-### Requirement: Default bundles list
-The system SHALL allow Owners and Admins to set `default_bundles` on an org. The list SHALL be ordered; order determines injection order downstream.
-
-#### Scenario: Update default bundles
-- **WHEN** an Admin PUTs `default_bundles: ["essentials", "internal-style"]` on org `acme`
-- **THEN** projects under `acme` inherit these two bundles in that order

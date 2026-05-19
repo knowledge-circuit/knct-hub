@@ -6,7 +6,7 @@ The system SHALL accept kpatch source files in markdown-with-YAML-frontmatter fo
 #### Scenario: Well-formed file accepted
 - **GIVEN** a `.md` file beginning with `---`, a YAML block including `id` and `name`, a closing `---`, and markdown content below
 - **WHEN** the file is parsed
-- **THEN** the parser yields a kpatch record whose `id`, `name`, `description`, and `keywords` come from the frontmatter and whose `body` is the markdown below the closing `---`
+- **THEN** the parser yields a kpatch record whose `slug`, `name`, `description`, and `keywords` come from the frontmatter and whose `body` is the markdown below the closing `---`
 
 #### Scenario: File without frontmatter rejected
 - **WHEN** a file is parsed that does not begin with `---` or has no closing `---`
@@ -29,29 +29,40 @@ The parser SHALL accept an optional `trigger` block in the frontmatter with fiel
 
 #### Scenario: Default trigger creates one trigger row
 - **GIVEN** a file whose frontmatter contains `trigger: { event: user_prompt, prompt_contains: ["commit"] }`
-- **WHEN** the file is imported under an org
-- **THEN** the kpatch is upserted and exactly one trigger row is created referencing it with event `user_prompt` and `prompt_contains: ["commit"]`
+- **WHEN** the file is imported at a scope
+- **THEN** the kpatch is upserted at that scope and exactly one trigger row is created referencing it via the kpatch's surrogate `pk_id`
 
 #### Scenario: No default trigger creates no trigger
 - **GIVEN** a file whose frontmatter omits `trigger`
 - **WHEN** the file is imported
 - **THEN** the kpatch is upserted and no trigger rows are created
 
-### Requirement: Import endpoint and conflict behavior
-The system SHALL expose `POST /api/v1/orgs/{org}/kpatches/import` accepting one markdown file body. On id collision the existing kpatch's body and metadata SHALL be silently upserted; existing triggers SHALL be preserved (not duplicated when the file's default trigger matches an existing one).
+### Requirement: Scope is selected at import time
+The system SHALL expose import endpoints at every scope and SHALL place the resulting kpatch at the scope identified by the chosen endpoint. The markdown file itself SHALL NOT carry a scope hint; scope is determined by where it is imported. The endpoints are:
 
-#### Scenario: Re-import preserves existing triggers
-- **GIVEN** a kpatch already exists with two triggers
-- **WHEN** the same file is re-imported with its default trigger
+- `POST /api/v1/orgs/{org}/kpatches/import` — org scope
+- `POST /api/v1/orgs/{org}/projects/{slug}/kpatches/import` — project scope
+- `POST /api/v1/orgs/{org}/projects/{slug}/members/{user_id}/kpatches/import` — member scope
+
+#### Scenario: Project-scope import lands at project scope
+- **WHEN** a file is POSTed to `/api/v1/orgs/acme/projects/web/kpatches/import`
+- **THEN** the resulting kpatch row has `scope="project"`, `org_id="acme"`, `project_slug="web"`
+
+### Requirement: Import conflict behavior
+On slug collision *at the same scope tuple*, the existing kpatch's body and metadata SHALL be silently upserted; existing triggers SHALL be preserved (no duplicate created when the file's default trigger matches an existing one).
+
+#### Scenario: Re-import preserves existing triggers at same scope
+- **GIVEN** a kpatch already exists at org scope with two triggers
+- **WHEN** the same file is re-imported at the same scope with its default trigger
 - **THEN** the body and metadata are upserted, no duplicate trigger is created, and the existing additional trigger is preserved
 
 ### Requirement: Dashboard import entry points
-The dashboard SHALL provide two entry points on the Kpatches page: an **Import** button next to "New kpatch" that opens a file picker, and a visible drop area on the same page that accepts a dragged-and-dropped `.md` file.
+The dashboard SHALL provide import entry points on each scope-specific kpatch list view: an **Import** button next to "New kpatch" that opens a file picker, and a visible drop area on the same page that accepts a dragged-and-dropped `.md` file. The chosen scope is implicit in the view the user is on.
 
 #### Scenario: Button opens file picker
-- **WHEN** the user clicks the Import button
+- **WHEN** the user clicks the Import button on any scope's kpatch list
 - **THEN** a native file picker opens accepting `.md` files
 
 #### Scenario: Drop area accepts dropped file
 - **WHEN** the user drops a `.md` file onto the drop area
-- **THEN** the file is uploaded to the import endpoint and a preview dialog opens
+- **THEN** the file is uploaded to the import endpoint for the current scope and a preview dialog opens

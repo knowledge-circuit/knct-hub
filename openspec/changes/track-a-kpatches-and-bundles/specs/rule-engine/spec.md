@@ -9,7 +9,7 @@
 **Migration**: Clients must use `/api/v1/orgs/{org}/kpatches/{id}/triggers` (see `trigger-engine`). The CLI's `knct init` will not write any per-project rule files.
 
 ### Requirement: Rule evaluation
-**Reason**: Replaced by `trigger-engine` evaluation, which adds substring matching on `user_prompt` events and operates on the effective kpatch set from `bundle-inheritance` rather than directly on per-project rules.
+**Reason**: Replaced by `trigger-engine` evaluation, which adds substring matching on `user_prompt` events and operates on the effective kpatch set from `kpatch-resolution` (scope-based) rather than directly on per-project rules.
 **Migration**: No client action required; the new evaluator runs server-side and returns the same `additionalContext` shape via `context-injection`.
 
 ### Requirement: Per-session dedupe for Read injection
