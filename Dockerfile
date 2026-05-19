@@ -2,15 +2,26 @@
 
 # --- Stage 1: build dashboard ---
 FROM node:22-alpine AS dashboard-build
+RUN corepack enable
 WORKDIR /app/dashboard
-COPY dashboard/package.json dashboard/package-lock.json* ./
-RUN npm ci
+COPY dashboard/package.json dashboard/pnpm-lock.yaml ./
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile --ignore-scripts --config.minimumReleaseAge=0
 COPY dashboard ./
-RUN npm run build
+RUN pnpm run build
 
 # --- Stage 2: server runtime ---
 FROM python:3.12-slim AS server
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+ARG GIT_SHA=unknown
+LABEL org.opencontainers.image.source="https://github.com/knowledge-circuit/knct-hub" \
+      org.opencontainers.image.description="knct-hub — smart context injection for AI coding agents." \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.title="knct-hub" \
+      org.opencontainers.image.url="https://github.com/knowledge-circuit/knct-hub" \
+      org.opencontainers.image.documentation="https://github.com/knowledge-circuit/knct-hub#readme"
 
 WORKDIR /app/server
 ENV UV_LINK_MODE=copy \

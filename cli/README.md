@@ -39,9 +39,9 @@ npx @knct/cli init --hub https://hub.your-team.dev
 ## Development
 
 ```bash
-npm install
-npm run dev -- init --hub http://localhost:8765   # iterate via tsx
-npm run build                                     # bundle to dist/cli.js
+pnpm install
+pnpm run dev -- init --hub http://localhost:8765   # iterate via tsx
+pnpm run build                                     # bundle to dist/cli.js
 node dist/cli.js init                             # run the built bundle
 ```
 
@@ -51,18 +51,22 @@ To use `knct` as a real command on your PATH before the package is published:
 
 ```bash
 cd cli
-npm link              # symlinks `knct` globally
+pnpm link --global    # symlinks `knct` globally
 knct init             # runs from any directory
 # undo with:
-npm unlink -g @knct/cli
+pnpm unlink --global @knct/cli
 ```
 
 The hub must be running first (`cd ../server && uv run python -m knct_hub`).
 
-## Publish (manual, not yet wired)
+## Release
+
+Releases are automated. Bump the version with `bump-my-version`, push the tag, and GitHub Actions publishes:
 
 ```bash
-npm run build
-npm run pack:dry          # sanity check the tarball contents
-# npm publish --access public
+cd cli
+uvx bump-my-version bump <patch|minor|major>   # commits + tags cli-vX.Y.Z
+git push --follow-tags                          # triggers .github/workflows/cli.yml
 ```
+
+See [`docs/RELEASING.md`](../docs/RELEASING.md) for the full procedure.

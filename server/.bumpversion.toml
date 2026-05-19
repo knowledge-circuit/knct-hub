@@ -1,0 +1,12 @@
+[tool.bumpversion]
+current_version = "0.0.2"
+commit = true
+tag = true
+tag_name = "v{new_version}"
+message = "chore: bump server to v{new_version}"
+allow_dirty = false
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'

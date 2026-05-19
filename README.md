@@ -28,43 +28,39 @@ See [`server/`](./server), [`cli/`](./cli), and [`dashboard/`](./dashboard) for 
 
 ## Quick start
 
-### Docker (recommended for dogfooding)
-
 ```bash
-docker compose up -d               # builds the image, runs in the background
-open http://localhost:8765         # UI + API on the same port
+# 1. Run the hub (image is published to ghcr; no clone needed):
+docker run -d --name knct-hub \
+  --restart unless-stopped \
+  -p 8765:8765 -v ~/.knct:/data \
+  ghcr.io/knowledge-circuit/knct-hub:latest
+
+# 2. Wire any repo you want to dogfood:
+npx @knct/cli init
+
+# 3. Open the dashboard + API on the same port:
+open http://localhost:8765
 ```
 
-The container restarts automatically (`restart: unless-stopped`) and persists data to `./data/hub.db` on the host.
+The container restarts automatically and persists data to `~/.knct/hub.db` on the host. All endpoints live under `/api/v1/...`. SQLite by default; Postgres supported via `KNCT_DATABASE_URL`.
 
 ### From source
 
-Run the hub:
+If you want to hack on the code rather than run the published image:
 
 ```bash
+# server
 cd server
 uv run python -m knct_hub          # listens on http://127.0.0.1:8765
-```
 
-All endpoints live under `/api/v1/...`. Database lives at `~/.knct/hub.db` (SQLite by default; Postgres supported via `KNCT_DATABASE_URL`).
-
-Run the dashboard separately during development:
-
-```bash
+# dashboard (separate dev server, proxies /api → :8765)
 cd dashboard
-npm install
-npm run dev                        # http://localhost:5173, proxies /api → :8765
+pnpm install
+pnpm run dev                       # http://localhost:5173
+
+# or build everything into one image
+docker compose up -d --build
 ```
-
-### Wire a repo up
-
-In any repo you want to wire up:
-
-```bash
-npx @knct/cli init
-```
-
-This writes `.knct/config.toml` and `.claude/settings.json`. Restart Claude Code to pick up the hooks.
 
 ## Authoring skills
 
@@ -96,6 +92,10 @@ sqlite3 ~/.knct/hub.db 'select ts, event, tool_name from traces order by ts desc
 
 Or open the dashboard's traces page.
 
+## Releases
+
+Both server and CLI ship from GitHub Actions on tag push. See [`docs/RELEASING.md`](./docs/RELEASING.md) for the procedure.
+
 ## Status
 
-Early. What works end-to-end: injection engine (skills, rules, dedupe), CLI initial wiring, and a dashboard with projects/skills/rules/traces CRUD bundled into the server when run via Docker. What's missing: auth, no published `@knct/cli` on npm, no opencode plugin.
+Early. What works end-to-end: injection engine (skills, rules, dedupe), CLI initial wiring (published as `@knct/cli` on npm), dashboard with projects/skills/rules/traces CRUD bundled into the server image, automated multi-arch image to `ghcr.io`. What's missing: auth, no opencode plugin.
