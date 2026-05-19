@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "CLI for knct-hub — link a repo to a hub project.",
   "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/knowledge-circuit/knct-hub.git",
+    "directory": "cli"
+  },
+  "homepage": "https://github.com/knowledge-circuit/knct-hub#readme",
+  "bugs": "https://github.com/knowledge-circuit/knct-hub/issues",
   "bin": {
     "knct": "./dist/cli.js"
   },
