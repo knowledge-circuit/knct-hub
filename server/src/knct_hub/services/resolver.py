@@ -148,6 +148,18 @@ async def resolve_effective_kpatches(
                 seen_kpatch.add(kid)
                 ordered_kpatch_ids.append(kid)
 
+    # Escape hatch: also include any kpatches in the org that aren't in
+    # an attached bundle. Appended after bundle-derived ids; order within
+    # this group is by kpatch id for determinism.
+    if org.include_unbundled:
+        all_in_org = await session.exec(
+            select(Kpatch.id).where(Kpatch.org_id == org.id).order_by(Kpatch.id)
+        )
+        for kid in all_in_org.all():
+            if kid not in seen_kpatch:
+                seen_kpatch.add(kid)
+                ordered_kpatch_ids.append(kid)
+
     # Apply project-level disable.
     disabled = set(json.loads(project.disabled_kpatch_ids or "[]"))
     ordered_kpatch_ids = [k for k in ordered_kpatch_ids if k not in disabled]

@@ -17,6 +17,7 @@ def serialize_org(org: Org) -> dict:
         "name": org.name,
         "created_at": org.created_at.isoformat(),
         "default_bundles": json.loads(org.default_bundles or "[]"),
+        "include_unbundled": bool(org.include_unbundled),
     }
 
 
@@ -65,6 +66,16 @@ async def update_org_default_bundles(
 ) -> Org:
     org = await get_org(session, org_id)
     org.default_bundles = json.dumps(default_bundles)
+    await session.commit()
+    await session.refresh(org)
+    return org
+
+
+async def update_org_include_unbundled(
+    session: AsyncSession, org_id: str, include_unbundled: bool
+) -> Org:
+    org = await get_org(session, org_id)
+    org.include_unbundled = bool(include_unbundled)
     await session.commit()
     await session.refresh(org)
     return org

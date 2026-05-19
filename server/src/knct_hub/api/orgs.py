@@ -19,6 +19,7 @@ from knct_hub.services.orgs import (
     serialize_org,
     set_member_role,
     update_org_default_bundles,
+    update_org_include_unbundled,
 )
 
 router = APIRouter()
@@ -31,6 +32,10 @@ class OrgCreate(BaseModel):
 
 class DefaultBundlesUpdate(BaseModel):
     default_bundles: list[str]
+
+
+class IncludeUnbundledUpdate(BaseModel):
+    include_unbundled: bool
 
 
 class MemberRoleUpdate(BaseModel):
@@ -76,6 +81,17 @@ async def update_defaults_endpoint(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     org = await update_org_default_bundles(session, org_id, body.default_bundles)
+    return serialize_org(org)
+
+
+@router.put("/orgs/{org_id}/include-unbundled")
+async def update_include_unbundled_endpoint(
+    org_id: str,
+    body: IncludeUnbundledUpdate,
+    _: Caller = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    org = await update_org_include_unbundled(session, org_id, body.include_unbundled)
     return serialize_org(org)
 
 

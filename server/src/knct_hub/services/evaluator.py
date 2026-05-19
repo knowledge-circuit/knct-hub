@@ -64,14 +64,20 @@ async def select_kpatches(
     effective: Iterable[EffectiveKpatch],
     event: str,
     payload: dict,
-) -> list[EffectiveKpatch]:
-    """Return the ordered list of kpatches whose triggers fired for this event."""
+) -> list[tuple[EffectiveKpatch, list[int]]]:
+    """Return ordered (kpatch, matched_trigger_ids) pairs for this event.
+
+    `matched_trigger_ids` are the database trigger row ids that matched and
+    contributed to the selection (excludes override-materialized triggers,
+    which have id=None).
+    """
     session_id = payload.get("session_id") or ""
     fired = await _fired_trigger_ids(session, session_id)
 
-    selected: list[EffectiveKpatch] = []
+    selected: list[tuple[EffectiveKpatch, list[int]]] = []
     to_record: list[int] = []
     for ek in effective:
+        matched_here: list[int] = []
         chose_this = False
         for trigger in ek.triggers:
             if not _matches(trigger, event, payload):
@@ -83,10 +89,12 @@ async def select_kpatches(
             ):
                 continue
             chose_this = True
+            if trigger.id is not None:
+                matched_here.append(trigger.id)
             if trigger.once_per_session and trigger.id is not None:
                 to_record.append(trigger.id)
         if chose_this:
-            selected.append(ek)
+            selected.append((ek, matched_here))
 
     if to_record and session_id:
         now = datetime.now(timezone.utc)

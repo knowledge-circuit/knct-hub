@@ -23,6 +23,7 @@ export type Org = {
   name: string;
   created_at: string;
   default_bundles: string[];
+  include_unbundled: boolean;
 };
 
 export type OrgMember = {
@@ -83,6 +84,11 @@ export const api = {
     http<Org>(`/orgs/${org}/default-bundles`, {
       method: "PUT",
       body: JSON.stringify({ default_bundles: bundles }),
+    }),
+  setIncludeUnbundled: (org: string, value: boolean) =>
+    http<Org>(`/orgs/${org}/include-unbundled`, {
+      method: "PUT",
+      body: JSON.stringify({ include_unbundled: value }),
     }),
   listMembers: (org: string) => http<OrgMember[]>(`/orgs/${org}/members`),
   setMemberRole: (org: string, userId: string, role: string) =>

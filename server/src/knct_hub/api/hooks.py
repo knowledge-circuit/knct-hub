@@ -28,7 +28,14 @@ def _slug_from(request: Request) -> str:
 
 
 async def _insert_trace(
-    session: AsyncSession, payload: dict, response: dict
+    session: AsyncSession,
+    payload: dict,
+    response: dict,
+    *,
+    org_id: str | None = None,
+    project_slug: str | None = None,
+    kpatch_ids: list[str] | None = None,
+    trigger_ids: list[int] | None = None,
 ) -> None:
     tool_input = payload.get("tool_input") or {}
     trace = Trace(
@@ -39,6 +46,10 @@ async def _insert_trace(
         tool_name=payload.get("tool_name") or tool_input.get("tool_name"),
         payload=json.dumps(payload),
         response=json.dumps(response),
+        kpatch_ids=json.dumps(kpatch_ids) if kpatch_ids else None,
+        triggered_by=json.dumps(trigger_ids) if trigger_ids else None,
+        project_org_id=org_id,
+        project_slug=project_slug,
     )
     session.add(trace)
     await session.commit()
@@ -64,28 +75,51 @@ async def hook(
 
     event = payload.get("hook_event_name")
     if event == "SessionStart":
-        resp = await handle_session_start(session, org, project, payload)
+        outcome = await handle_session_start(session, org, project, payload)
     elif event == "UserPromptSubmit":
-        resp = await handle_prompt_submit(session, org, project, payload)
+        outcome = await handle_prompt_submit(session, org, project, payload)
     elif event == "PreToolUse":
-        resp = await handle_pre_tool(session, org, project, payload)
+        outcome = await handle_pre_tool(session, org, project, payload)
     elif event == "PostCompact":
-        resp = await handle_post_compact(session, org, project, payload)
+        outcome = await handle_post_compact(session, org, project, payload)
     else:
-        resp = {}
+        from knct_hub.services.injection import HookOutcome
 
-    await _insert_trace(session, payload, resp)
-    return resp
+        outcome = HookOutcome({}, [], [])
+
+    await _insert_trace(
+        session,
+        payload,
+        outcome.response,
+        org_id=org.id,
+        project_slug=project.slug,
+        kpatch_ids=outcome.kpatch_ids,
+        trigger_ids=outcome.trigger_ids,
+    )
+    return outcome.response
 
 
 @router.get("/traces")
 async def traces(
-    limit: int = 100, session: AsyncSession = Depends(get_session)
+    limit: int = 100,
+    only_injections: bool = False,
+    org_id: str | None = None,
+    project_slug: str | None = None,
+    event: str | None = None,
+    session: AsyncSession = Depends(get_session),
 ) -> list[dict]:
     limit = max(1, min(limit, 1000))
-    result = await session.exec(
-        select(Trace).order_by(Trace.ts.desc()).limit(limit)
-    )
+    q = select(Trace).order_by(Trace.ts.desc())
+    if only_injections:
+        q = q.where(Trace.kpatch_ids.is_not(None))
+    if org_id:
+        q = q.where(Trace.project_org_id == org_id)
+    if project_slug:
+        q = q.where(Trace.project_slug == project_slug)
+    if event:
+        q = q.where(Trace.event == event)
+    q = q.limit(limit)
+    result = await session.exec(q)
     out: list[dict] = []
     for t in result.all():
         row = {
@@ -97,6 +131,10 @@ async def traces(
             "tool_name": t.tool_name,
             "payload": json.loads(t.payload) if t.payload else None,
             "response": json.loads(t.response) if t.response else None,
+            "kpatch_ids": json.loads(t.kpatch_ids) if t.kpatch_ids else [],
+            "triggered_by": json.loads(t.triggered_by) if t.triggered_by else [],
+            "project_org_id": t.project_org_id,
+            "project_slug": t.project_slug,
         }
         out.append(row)
     return out

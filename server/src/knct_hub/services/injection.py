@@ -14,11 +14,16 @@ from __future__ import annotations
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from knct_hub.db.models import Org, Project
+from typing import NamedTuple
+
 from knct_hub.services.evaluator import clear_dedupe, select_kpatches
-from knct_hub.services.resolver import (
-    EffectiveKpatch,
-    resolve_effective_kpatches,
-)
+from knct_hub.services.resolver import resolve_effective_kpatches
+
+
+class HookOutcome(NamedTuple):
+    response: dict
+    kpatch_ids: list[str]
+    trigger_ids: list[int]
 
 # PreToolUse is processed only for these tools (per context-injection spec).
 PRE_TOOL_USE_ALLOW = ("Edit", "Write", "Read")
@@ -44,6 +49,9 @@ def _concat(bodies: list[str]) -> str:
     return "\n\n---\n\n".join(bodies)
 
 
+_EMPTY = HookOutcome({}, [], [])
+
+
 async def _process_event(
     session: AsyncSession,
     org: Org,
@@ -51,21 +59,24 @@ async def _process_event(
     claude_event_name: str,
     internal_event: str,
     payload: dict,
-) -> dict:
+) -> HookOutcome:
     effective = await resolve_effective_kpatches(session, org, project)
     if not effective:
-        return {}
-    selected: list[EffectiveKpatch] = await select_kpatches(
-        session, effective, internal_event, payload
-    )
+        return _EMPTY
+    selected = await select_kpatches(session, effective, internal_event, payload)
     if not selected:
-        return {}
-    return inject_response(claude_event_name, _concat([k.body for k in selected]))
+        return _EMPTY
+    kpatch_ids = [k.id for k, _ in selected]
+    trigger_ids = [tid for _, tids in selected for tid in tids]
+    body = _concat([k.body for k, _ in selected])
+    return HookOutcome(
+        inject_response(claude_event_name, body), kpatch_ids, trigger_ids
+    )
 
 
 async def handle_session_start(
     session: AsyncSession, org: Org, project: Project, payload: dict
-) -> dict:
+) -> HookOutcome:
     return await _process_event(
         session, org, project, "SessionStart", "session_start", payload
     )
@@ -73,7 +84,7 @@ async def handle_session_start(
 
 async def handle_prompt_submit(
     session: AsyncSession, org: Org, project: Project, payload: dict
-) -> dict:
+) -> HookOutcome:
     return await _process_event(
         session, org, project, "UserPromptSubmit", "user_prompt", payload
     )
@@ -81,12 +92,12 @@ async def handle_prompt_submit(
 
 async def handle_pre_tool(
     session: AsyncSession, org: Org, project: Project, payload: dict
-) -> dict:
+) -> HookOutcome:
     tool = payload.get("tool_name") or (payload.get("tool_input") or {}).get(
         "tool_name"
     )
     if tool not in PRE_TOOL_USE_ALLOW:
-        return {}
+        return _EMPTY
     return await _process_event(
         session, org, project, "PreToolUse", "pre_tool_use", payload
     )
@@ -94,8 +105,8 @@ async def handle_pre_tool(
 
 async def handle_post_compact(
     session: AsyncSession, org: Org, project: Project, payload: dict
-) -> dict:
+) -> HookOutcome:
     sid = payload.get("session_id")
     if sid:
         await clear_dedupe(session, sid)
-    return {}
+    return _EMPTY

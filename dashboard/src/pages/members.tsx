@@ -43,6 +43,11 @@ export function MembersPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["org", org] }),
   });
 
+  const toggleUnbundled = useMutation({
+    mutationFn: (v: boolean) => api.setIncludeUnbundled(org!, v),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["org", org] }),
+  });
+
   const setRole = useMutation({
     mutationFn: ({ user, role }: { user: string; role: string }) =>
       api.setMemberRole(org!, user, role),
@@ -133,6 +138,22 @@ export function MembersPage() {
         <p className="text-xs text-muted-foreground">
           Bundles inherited by every project in this org, in order.
         </p>
+        <label className="flex items-start gap-2 text-sm border rounded p-2 bg-muted/30">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={orgData?.include_unbundled ?? false}
+            onChange={(e) => toggleUnbundled.mutate(e.target.checked)}
+          />
+          <span>
+            <span className="font-medium">Include unbundled kpatches</span>
+            <span className="block text-xs text-muted-foreground">
+              Also inject any kpatch in this org that isn't part of an attached
+              bundle. Useful for solo / quick-test use; teams typically leave
+              this off and curate bundles explicitly.
+            </span>
+          </span>
+        </label>
         <div className="border rounded p-2 max-h-48 overflow-auto space-y-1">
           {bundles?.length === 0 && (
             <p className="text-xs text-muted-foreground">No bundles yet.</p>

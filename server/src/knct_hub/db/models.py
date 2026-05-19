@@ -25,6 +25,10 @@ class Org(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_utcnow)
     # JSON-encoded ordered list of bundle ids.
     default_bundles: str = Field(default="[]")
+    # When true, the resolver also injects kpatches in this org that are
+    # not part of any attached bundle. Escape hatch for solo/small-team use
+    # where the bundle layer is overhead.
+    include_unbundled: bool = Field(default=False)
 
 
 class OrgMember(SQLModel, table=True):
@@ -125,3 +129,11 @@ class Trace(SQLModel, table=True):
     tool_name: Optional[str] = None
     payload: str  # JSON text
     response: Optional[str] = None  # JSON text
+    # Which kpatches contributed to the response (JSON list of ids).
+    # Null when no injection occurred or for non-injection events.
+    kpatch_ids: Optional[str] = None
+    # Which trigger rows matched (JSON list of ints).
+    triggered_by: Optional[str] = None
+    # Owning project for fast filtering. Composite (org_id, slug).
+    project_org_id: Optional[str] = Field(default=None, index=True)
+    project_slug: Optional[str] = Field(default=None, index=True)
