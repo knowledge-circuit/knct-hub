@@ -1,6 +1,20 @@
 # knct-hub server
 
-FastAPI hub server: ingests Claude Code hook events, evaluates per-project rules, returns injection payloads.
+FastAPI hub server: ingests Claude Code hook events, resolves kpatches across org / project / member scopes, evaluates triggers, and returns injection payloads.
+
+## Concepts
+
+Every kpatch carries an explicit `scope` (`org`, `project`, or `member`).
+For each hook the resolver collects rows at all three scopes for
+`(caller_org, project, user)`, keeps the lowest-scope row per slug
+(member > project > org), and drops any with `disable=true`. The
+trigger engine then matches the survivors' triggers against the event
+(`session_start`, `user_prompt`, `pre_tool_use`) and concatenates the
+matching bodies into the `additionalContext` returned to the agent.
+
+Override = create a sibling kpatch at a lower scope with new content.
+Disable = create the sibling with `disable=true`. There are no separate
+disable/override arrays.
 
 ## Layout
 
@@ -69,6 +83,6 @@ The DB driver (`asyncpg`) is already declared in `pyproject.toml`.
 ## Inspect traces
 
 ```bash
-curl 'http://localhost:8765/api/v1/traces?limit=20'
-sqlite3 ~/.knct/hub.db 'select ts, event, tool_name from traces order by ts desc limit 20'
+curl 'http://localhost:8765/api/v1/traces?limit=20&only_injections=true'
+sqlite3 ~/.knct/hub.db 'select ts, event, kpatch_ids from traces order by ts desc limit 20'
 ```
