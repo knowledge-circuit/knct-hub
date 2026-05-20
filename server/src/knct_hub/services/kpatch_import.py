@@ -1,21 +1,11 @@
-"""Parse markdown-with-frontmatter into a kpatch record + optional default trigger.
+"""Parse markdown-with-frontmatter and create a kpatch at a given scope.
 
-Format (spec: kpatch-import):
-  ---
-  id: commit-conventions
-  name: Commit conventions
-  description: One-liner
-  keywords: [git, commit]
-  trigger:                       # optional
-    event: user_prompt
-    prompt_contains: ["commit"]
-    path_match: "**"
-  ---
-  <markdown body>
+Scope is chosen by the caller (which endpoint they POSTed to). The
+markdown file itself carries no scope hint.
 """
 
-from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -25,18 +15,18 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from knct_hub.db.models import Trigger
-from knct_hub.services.kpatches import upsert_kpatch
-from knct_hub.services.triggers import VALID_EVENTS
+from knct_hub.services.kpatches import Scope, upsert_kpatch
+from knct_hub.services.triggers import VALID_EVENTS, create_trigger
 
 
 @dataclass
 class ParsedKpatch:
-    id: str
+    slug: str
     name: str
     description: Optional[str]
     keywords: list[str]
     body: str
-    trigger: Optional[dict]  # raw default-trigger frontmatter, validated
+    trigger: Optional[dict]
 
 
 def _split_frontmatter(text: str) -> tuple[str, str]:
@@ -51,7 +41,7 @@ def _split_frontmatter(text: str) -> tuple[str, str]:
     if end_idx is None:
         raise HTTPException(status_code=400, detail="unterminated frontmatter")
     fm = "".join(lines[1:end_idx])
-    body = "".join(lines[end_idx + 1 :])
+    body = "".join(lines[end_idx + 1:])
     return fm, body.lstrip("\n")
 
 
@@ -81,29 +71,24 @@ def _validate_trigger(raw: Any) -> Optional[dict]:
     event = raw.get("event")
     if event not in VALID_EVENTS:
         raise HTTPException(status_code=400, detail="trigger.event invalid")
-    prompt_contains = raw.get("prompt_contains")
-    if prompt_contains is not None and (
-        not isinstance(prompt_contains, list)
-        or not all(isinstance(s, str) for s in prompt_contains)
+    pc = raw.get("prompt_contains")
+    if pc is not None and (
+        not isinstance(pc, list) or not all(isinstance(s, str) for s in pc)
     ):
         raise HTTPException(
             status_code=400,
             detail="trigger.prompt_contains must be a list of strings",
         )
-    path_match = raw.get("path_match")
-    if path_match is not None and not isinstance(path_match, str):
-        raise HTTPException(
-            status_code=400, detail="trigger.path_match must be a string"
-        )
+    pm = raw.get("path_match")
+    if pm is not None and not isinstance(pm, str):
+        raise HTTPException(status_code=400, detail="trigger.path_match must be a string")
     once = raw.get("once_per_session")
     if once is not None and not isinstance(once, bool):
-        raise HTTPException(
-            status_code=400, detail="trigger.once_per_session must be a bool"
-        )
+        raise HTTPException(status_code=400, detail="trigger.once_per_session must be a bool")
     return {
         "event": event,
-        "prompt_contains": prompt_contains,
-        "path_match": path_match,
+        "prompt_contains": pc,
+        "path_match": pm,
         "once_per_session": once,
     }
 
@@ -113,27 +98,21 @@ def parse_kpatch(text: str) -> ParsedKpatch:
     try:
         fm = yaml.safe_load(fm_text) or {}
     except yaml.YAMLError as e:
-        raise HTTPException(
-            status_code=400, detail=f"invalid YAML frontmatter: {e}"
-        )
+        raise HTTPException(status_code=400, detail=f"invalid YAML frontmatter: {e}")
     if not isinstance(fm, dict):
         raise HTTPException(status_code=400, detail="frontmatter must be a mapping")
 
-    kp_id = (fm.get("id") or "").strip() if isinstance(fm.get("id"), str) else ""
+    slug = (fm.get("id") or "").strip() if isinstance(fm.get("id"), str) else ""
     name = (fm.get("name") or "").strip() if isinstance(fm.get("name"), str) else ""
-    if not kp_id:
+    if not slug:
         raise HTTPException(status_code=400, detail="missing id")
     if not name:
         raise HTTPException(status_code=400, detail="missing name")
-
     description = fm.get("description")
     if description is not None and not isinstance(description, str):
-        raise HTTPException(
-            status_code=400, detail="description must be a string"
-        )
-
+        raise HTTPException(status_code=400, detail="description must be a string")
     return ParsedKpatch(
-        id=kp_id,
+        slug=slug,
         name=name,
         description=description,
         keywords=_normalize_keywords(fm.get("keywords")),
@@ -145,22 +124,19 @@ def parse_kpatch(text: str) -> ParsedKpatch:
 def _trigger_matches(t: Trigger, trig: dict) -> bool:
     same_event = t.event == trig["event"]
     same_path = (t.path_match or None) == (trig.get("path_match") or None)
-    # prompt_contains: compare normalized JSON lists.
-    import json as _json
-
-    existing = _json.loads(t.prompt_contains) if t.prompt_contains else None
+    existing = json.loads(t.prompt_contains) if t.prompt_contains else None
     target = trig.get("prompt_contains")
     return same_event and same_path and existing == target
 
 
 async def import_kpatch_file(
-    session: AsyncSession, org_id: str, text: str
+    session: AsyncSession, scope: Scope, text: str
 ) -> dict:
     parsed = parse_kpatch(text)
     saved = await upsert_kpatch(
         session,
-        org_id,
-        parsed.id,
+        scope,
+        parsed.slug,
         name=parsed.name,
         description=parsed.description,
         body=parsed.body,
@@ -168,22 +144,14 @@ async def import_kpatch_file(
     )
     created_trigger: Optional[dict] = None
     if parsed.trigger is not None:
-        # Preserve existing triggers; only create the default trigger if
-        # no matching one exists yet.
         result = await session.exec(
-            select(Trigger).where(
-                Trigger.kpatch_org_id == org_id,
-                Trigger.kpatch_id == parsed.id,
-            )
+            select(Trigger).where(Trigger.kpatch_id == saved["pk_id"])
         )
-        triggers = list(result.all())
-        if not any(_trigger_matches(t, parsed.trigger) for t in triggers):
-            from knct_hub.services.triggers import create_trigger
-
+        existing = list(result.all())
+        if not any(_trigger_matches(t, parsed.trigger) for t in existing):
             created_trigger = await create_trigger(
                 session,
-                org_id,
-                parsed.id,
+                saved["pk_id"],
                 event=parsed.trigger["event"],
                 prompt_contains=parsed.trigger.get("prompt_contains"),
                 path_match=parsed.trigger.get("path_match"),

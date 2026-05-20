@@ -75,13 +75,13 @@ async def hook(
 
     event = payload.get("hook_event_name")
     if event == "SessionStart":
-        outcome = await handle_session_start(session, org, project, payload)
+        outcome = await handle_session_start(session, project, caller.user_id, payload)
     elif event == "UserPromptSubmit":
-        outcome = await handle_prompt_submit(session, org, project, payload)
+        outcome = await handle_prompt_submit(session, project, caller.user_id, payload)
     elif event == "PreToolUse":
-        outcome = await handle_pre_tool(session, org, project, payload)
+        outcome = await handle_pre_tool(session, project, caller.user_id, payload)
     elif event == "PostCompact":
-        outcome = await handle_post_compact(session, org, project, payload)
+        outcome = await handle_post_compact(session, project, caller.user_id, payload)
     else:
         from knct_hub.services.injection import HookOutcome
 

@@ -8,7 +8,6 @@ trigger_id. Override-materialized triggers have `id=None` and are not
 deduped (they exist only in-memory for the duration of this request).
 """
 
-from __future__ import annotations
 
 import json
 from datetime import datetime, timezone

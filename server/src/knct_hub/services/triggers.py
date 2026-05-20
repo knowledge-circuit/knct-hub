@@ -1,3 +1,6 @@
+"""Trigger CRUD. Triggers FK by integer kpatch_id (the surrogate pk_id)."""
+
+
 import json
 
 from fastapi import HTTPException
@@ -12,7 +15,6 @@ VALID_EVENTS = ("session_start", "user_prompt", "pre_tool_use")
 def serialize_trigger(t: Trigger) -> dict:
     return {
         "id": t.id,
-        "kpatch_org_id": t.kpatch_org_id,
         "kpatch_id": t.kpatch_id,
         "event": t.event,
         "prompt_contains": (
@@ -23,31 +25,23 @@ def serialize_trigger(t: Trigger) -> dict:
     }
 
 
-def _default_once(event: str, payload_tool: str | None) -> bool:
-    # Default true for pre_tool_use Reads, false otherwise (matches
-    # rule-engine legacy semantics, now expressed per-trigger).
-    return event == "pre_tool_use" and (payload_tool or "").lower() == "read"
-
-
-async def _ensure_kpatch(
-    session: AsyncSession, org_id: str, kpatch_id: str
-) -> None:
+async def _ensure_kpatch(session: AsyncSession, kpatch_pk_id: int) -> Kpatch:
     result = await session.exec(
-        select(Kpatch).where(Kpatch.org_id == org_id, Kpatch.id == kpatch_id)
+        select(Kpatch).where(Kpatch.pk_id == kpatch_pk_id)
     )
-    if not result.first():
+    k = result.first()
+    if not k:
         raise HTTPException(status_code=404, detail="kpatch not found")
+    return k
 
 
 async def list_triggers(
-    session: AsyncSession, org_id: str, kpatch_id: str
+    session: AsyncSession, kpatch_pk_id: int
 ) -> list[dict]:
-    await _ensure_kpatch(session, org_id, kpatch_id)
+    await _ensure_kpatch(session, kpatch_pk_id)
     result = await session.exec(
         select(Trigger)
-        .where(
-            Trigger.kpatch_org_id == org_id, Trigger.kpatch_id == kpatch_id
-        )
+        .where(Trigger.kpatch_id == kpatch_pk_id)
         .order_by(Trigger.id)
     )
     return [serialize_trigger(t) for t in result.all()]
@@ -55,8 +49,7 @@ async def list_triggers(
 
 async def create_trigger(
     session: AsyncSession,
-    org_id: str,
-    kpatch_id: str,
+    kpatch_pk_id: int,
     *,
     event: str,
     prompt_contains: list[str] | None,
@@ -65,19 +58,14 @@ async def create_trigger(
 ) -> dict:
     if event not in VALID_EVENTS:
         raise HTTPException(status_code=400, detail="invalid event")
-    await _ensure_kpatch(session, org_id, kpatch_id)
+    await _ensure_kpatch(session, kpatch_pk_id)
     once = (
-        once_per_session
-        if once_per_session is not None
-        else _default_once(event, None)
+        once_per_session if once_per_session is not None else False
     )
     trigger = Trigger(
-        kpatch_org_id=org_id,
-        kpatch_id=kpatch_id,
+        kpatch_id=kpatch_pk_id,
         event=event,
-        prompt_contains=(
-            json.dumps(prompt_contains) if prompt_contains else None
-        ),
+        prompt_contains=json.dumps(prompt_contains) if prompt_contains else None,
         path_match=path_match,
         once_per_session=once,
     )
@@ -89,8 +77,7 @@ async def create_trigger(
 
 async def update_trigger(
     session: AsyncSession,
-    org_id: str,
-    kpatch_id: str,
+    kpatch_pk_id: int,
     trigger_id: int,
     *,
     event: str,
@@ -102,9 +89,7 @@ async def update_trigger(
         raise HTTPException(status_code=400, detail="invalid event")
     result = await session.exec(
         select(Trigger).where(
-            Trigger.id == trigger_id,
-            Trigger.kpatch_org_id == org_id,
-            Trigger.kpatch_id == kpatch_id,
+            Trigger.id == trigger_id, Trigger.kpatch_id == kpatch_pk_id
         )
     )
     trigger = result.first()
@@ -116,9 +101,7 @@ async def update_trigger(
     )
     trigger.path_match = path_match
     trigger.once_per_session = (
-        once_per_session
-        if once_per_session is not None
-        else _default_once(event, None)
+        once_per_session if once_per_session is not None else False
     )
     await session.commit()
     await session.refresh(trigger)
@@ -126,13 +109,11 @@ async def update_trigger(
 
 
 async def delete_trigger(
-    session: AsyncSession, org_id: str, kpatch_id: str, trigger_id: int
+    session: AsyncSession, kpatch_pk_id: int, trigger_id: int
 ) -> None:
     result = await session.exec(
         select(Trigger).where(
-            Trigger.id == trigger_id,
-            Trigger.kpatch_org_id == org_id,
-            Trigger.kpatch_id == kpatch_id,
+            Trigger.id == trigger_id, Trigger.kpatch_id == kpatch_pk_id
         )
     )
     trigger = result.first()

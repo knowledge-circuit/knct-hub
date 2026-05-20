@@ -16,9 +16,6 @@ from knct_hub.services.projects import (
     list_projects,
     serialize_project,
     update_access,
-    update_attached_bundles,
-    update_disabled_kpatches,
-    update_overridden_kpatches,
 )
 
 router = APIRouter()
@@ -31,18 +28,6 @@ class ProjectCreate(BaseModel):
 class AccessUpdate(BaseModel):
     access_mode: str | None = None
     members: list[str] | None = None
-
-
-class AttachedBundlesUpdate(BaseModel):
-    attached_bundles: list[str]
-
-
-class DisabledKpatchesUpdate(BaseModel):
-    disabled_kpatch_ids: list[str]
-
-
-class OverriddenKpatchesUpdate(BaseModel):
-    overridden_kpatches: list[dict]
 
 
 @router.get("/orgs/{org_id}/projects")
@@ -102,44 +87,5 @@ async def put_access(
         slug,
         access_mode=body.access_mode,
         members=body.members,
-    )
-    return serialize_project(project)
-
-
-@router.put("/projects/{slug}/attached-bundles")
-async def put_attached(
-    slug: str,
-    body: AttachedBundlesUpdate,
-    caller: Caller = Depends(require_active_admin),
-    session: AsyncSession = Depends(get_session),
-) -> dict:
-    project = await update_attached_bundles(
-        session, caller.active_org_id, slug, body.attached_bundles
-    )
-    return serialize_project(project)
-
-
-@router.put("/projects/{slug}/disabled-kpatches")
-async def put_disabled(
-    slug: str,
-    body: DisabledKpatchesUpdate,
-    caller: Caller = Depends(require_active_admin),
-    session: AsyncSession = Depends(get_session),
-) -> dict:
-    project = await update_disabled_kpatches(
-        session, caller.active_org_id, slug, body.disabled_kpatch_ids
-    )
-    return serialize_project(project)
-
-
-@router.put("/projects/{slug}/overridden-kpatches")
-async def put_overridden(
-    slug: str,
-    body: OverriddenKpatchesUpdate,
-    caller: Caller = Depends(require_active_admin),
-    session: AsyncSession = Depends(get_session),
-) -> dict:
-    project = await update_overridden_kpatches(
-        session, caller.active_org_id, slug, body.overridden_kpatches
     )
     return serialize_project(project)

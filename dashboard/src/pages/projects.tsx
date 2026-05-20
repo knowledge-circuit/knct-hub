@@ -55,14 +55,13 @@ export function ProjectsPage() {
             <TableHead>Slug</TableHead>
             <TableHead>Access</TableHead>
             <TableHead>Members</TableHead>
-            <TableHead>Bundles</TableHead>
             <TableHead>Created</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {data?.length === 0 && (
             <TableRow>
-              <TableCell colSpan={5} className="text-muted-foreground text-center">
+              <TableCell colSpan={4} className="text-muted-foreground text-center">
                 No projects yet.
               </TableCell>
             </TableRow>
@@ -80,9 +79,6 @@ export function ProjectsPage() {
               <TableCell className="text-xs">{p.access_mode}</TableCell>
               <TableCell className="text-xs text-muted-foreground">
                 {p.members.length}
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                {p.attached_bundles.length}
               </TableCell>
               <TableCell className="text-xs text-muted-foreground">
                 {p.created_at.slice(0, 10)}

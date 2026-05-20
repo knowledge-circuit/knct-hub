@@ -9,7 +9,7 @@ from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from knct_hub.api import bundles, hooks, kpatches, orgs, projects
+from knct_hub.api import hooks, kpatches, orgs, projects
 from knct_hub.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,6 @@ def create_app() -> FastAPI:
         hooks.router,
         orgs.router,
         kpatches.router,
-        bundles.router,
         projects.router,
         health,
     ):

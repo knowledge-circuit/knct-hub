@@ -28,18 +28,18 @@ export function KpatchDetailPage() {
   const qc = useQueryClient();
   const { data: kpatch } = useQuery({
     queryKey: ["kpatch", org, id],
-    queryFn: () => api.getKpatch(org!, id!),
+    queryFn: () => api.getKpatch({ org_id: org! }, id!),
     enabled: !!org && !!id,
   });
   const { data: triggers } = useQuery({
     queryKey: ["triggers", org, id],
-    queryFn: () => api.listTriggers(org!, id!),
+    queryFn: () => api.listTriggers({ org_id: org! }, id!),
     enabled: !!org && !!id,
   });
   const [editing, setEditing] = useState<Editing>(null);
 
   const del = useMutation({
-    mutationFn: (tid: number) => api.deleteTrigger(org!, id!, tid),
+    mutationFn: (tid: number) => api.deleteTrigger({ org_id: org! }, id!, tid),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["triggers", org, id] }),
   });
 
@@ -54,7 +54,7 @@ export function KpatchDetailPage() {
           ← kpatches
         </Link>
         <h2 className="text-xl font-semibold mt-1">{kpatch.name}</h2>
-        <code className="font-mono text-xs text-muted-foreground">{kpatch.id}</code>
+        <code className="font-mono text-xs text-muted-foreground">{kpatch.slug}</code>
         {kpatch.description && (
           <p className="text-sm text-muted-foreground mt-2">{kpatch.description}</p>
         )}
@@ -167,8 +167,8 @@ function TriggerDialog({
   const save = useMutation({
     mutationFn: () =>
       isCreate
-        ? api.createTrigger(org, kpatchId, body())
-        : api.updateTrigger(org, kpatchId, t!.id, body()),
+        ? api.createTrigger({ org_id: org }, kpatchId, body())
+        : api.updateTrigger({ org_id: org }, kpatchId, t!.id, body()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["triggers", org, kpatchId] });
       onClose();

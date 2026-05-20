@@ -2,21 +2,18 @@ import { Link, NavLink, Navigate, Route, Routes, useParams } from "react-router-
 import { OrgsPage } from "@/pages/orgs";
 import { KpatchesPage } from "@/pages/kpatches";
 import { KpatchDetailPage } from "@/pages/kpatch-detail";
-import { BundlesPage } from "@/pages/bundles";
 import { ProjectsPage } from "@/pages/projects";
 import { ProjectDetailPage } from "@/pages/project-detail";
+import { ProjectKpatchesPage } from "@/pages/project-kpatches";
 import { MembersPage } from "@/pages/members";
-import { CommunityPage } from "@/pages/community";
 import { TracesPage } from "@/pages/traces";
 
 function OrgLayout() {
   const { org } = useParams<{ org: string }>();
   const nav = [
     { to: `/o/${org}/kpatches`, label: "Kpatches" },
-    { to: `/o/${org}/bundles`, label: "Bundles" },
     { to: `/o/${org}/projects`, label: "Projects" },
     { to: `/o/${org}/members`, label: "Members" },
-    { to: `/o/${org}/community`, label: "Community" },
     { to: `/o/${org}/traces`, label: "Traces" },
   ];
   return (
@@ -50,11 +47,10 @@ function OrgLayout() {
           <Route index element={<Navigate to="kpatches" replace />} />
           <Route path="kpatches" element={<KpatchesPage />} />
           <Route path="kpatches/:id" element={<KpatchDetailPage />} />
-          <Route path="bundles" element={<BundlesPage />} />
           <Route path="projects" element={<ProjectsPage />} />
           <Route path="projects/:slug" element={<ProjectDetailPage />} />
+          <Route path="projects/:slug/kpatches" element={<ProjectKpatchesPage />} />
           <Route path="members" element={<MembersPage />} />
-          <Route path="community" element={<CommunityPage />} />
           <Route path="traces" element={<TracesPage />} />
         </Routes>
       </main>

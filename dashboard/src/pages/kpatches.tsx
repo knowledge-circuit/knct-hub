@@ -30,7 +30,7 @@ export function KpatchesPage() {
   const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ["kpatches", org],
-    queryFn: () => api.listKpatches(org!),
+    queryFn: () => api.listKpatches({ org_id: org! }),
     enabled: !!org,
   });
   const [editing, setEditing] = useState<Editing>(null);
@@ -40,7 +40,7 @@ export function KpatchesPage() {
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const del = useMutation({
-    mutationFn: (id: string) => api.deleteKpatch(org!, id),
+    mutationFn: (id: string) => api.deleteKpatch({ org_id: org! }, id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["kpatches", org] }),
   });
 
@@ -125,13 +125,13 @@ export function KpatchesPage() {
             </TableRow>
           )}
           {data?.map((k) => (
-            <TableRow key={k.id}>
+            <TableRow key={k.slug}>
               <TableCell className="font-mono text-xs">
                 <Link
-                  to={`/o/${org}/kpatches/${k.id}`}
+                  to={`/o/${org}/kpatches/${k.slug}`}
                   className="hover:underline"
                 >
-                  {k.id}
+                  {k.slug}
                 </Link>
               </TableCell>
               <TableCell>{k.name}</TableCell>
@@ -149,7 +149,7 @@ export function KpatchesPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => confirm(`Delete ${k.id}?`) && del.mutate(k.id)}
+                  onClick={() => confirm(`Delete ${k.slug}?`) && del.mutate(k.slug)}
                 >
                   Delete
                 </Button>
@@ -168,7 +168,7 @@ export function KpatchesPage() {
       )}
       {parsed && (
         <KpatchImportDialog
-          org={org!}
+          scope={{ org_id: org! }}
           parsed={parsed}
           onClose={() => setParsed(null)}
         />
@@ -189,7 +189,7 @@ function KpatchDialog({
   const qc = useQueryClient();
   const isCreate = editing.mode === "create";
   const k = isCreate ? null : editing.kpatch;
-  const [id, setId] = useState(k?.id ?? "");
+  const [id, setId] = useState(k?.slug ?? "");
   const [name, setName] = useState(k?.name ?? "");
   const [description, setDescription] = useState(k?.description ?? "");
   const [body, setBody] = useState(k?.body ?? "");
@@ -198,7 +198,7 @@ function KpatchDialog({
 
   const save = useMutation({
     mutationFn: () =>
-      api.upsertKpatch(org, id, {
+      api.upsertKpatch({ org_id: org }, id, {
         name,
         description: description || null,
         body,
@@ -216,7 +216,7 @@ function KpatchDialog({
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>
-            {isCreate ? "New kpatch" : `Edit ${k!.id}`}
+            {isCreate ? "New kpatch" : `Edit ${k!.slug}`}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">

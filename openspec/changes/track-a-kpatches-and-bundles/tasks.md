@@ -5,7 +5,7 @@
 - [x] 1.3 Same revision: drop `rules` and `skills` tables after exporting snapshot to JSON for ops
 - [x] 1.4 Same revision: re-key `session_dedupe` rows to point at the new `triggers.id` (or recreate fresh if migration data is unavailable)
 - [x] 1.5 Verify migration up + down on a seeded dev database
-- [ ] 1.6 Follow-up revision: collapse to scope-based kpatches — drop `bundles` table, drop `orgs.default_bundles` / `orgs.include_unbundled`, drop `projects.attached_bundles` / `projects.disabled_kpatch_ids` / `projects.overridden_kpatches`; recreate `kpatches` with surrogate `pk_id`, `scope`, `project_slug`, `user_id`, `slug`, `disable`; re-key triggers FK to the new `kpatches.pk_id`. Existing rows migrate as `scope="org"`.
+- [x] 1.6 Follow-up revision: collapse to scope-based kpatches — drop `bundles` table, drop `orgs.default_bundles` / `orgs.include_unbundled`, drop `projects.attached_bundles` / `projects.disabled_kpatch_ids` / `projects.overridden_kpatches`; recreate `kpatches` with surrogate `pk_id`, `scope`, `project_slug`, `user_id`, `slug`, `disable`; re-key triggers FK to the new `kpatches.pk_id`. Existing rows migrate as `scope="org"`.
 
 ## 2. Engine + protocol
 
@@ -18,11 +18,11 @@
 - [x] 2.9 Add `UserPromptSubmit` Claude Code hook handler that maps to the new `user_prompt` event end-to-end
 - [x] 2.10 Update project auto-registration to scope by caller org and require authentication outside solo mode
 - [x] 2.11 Confirm `context-injection` wire shape and `hook-logging` traces still record `payload` + `response` correctly
-- [ ] 2.12 Rewrite resolver to scope-based form (`kpatch-resolution` spec): collect at org/project/member scopes, dedupe lowest-wins, drop disabled. Delete bundle-inheritance code.
-- [ ] 2.13 Add project-scope CRUD endpoints (`/api/v1/orgs/{org}/projects/{slug}/kpatches/...`) + import endpoint at project scope
-- [ ] 2.14 Add member-scope CRUD endpoints (`/api/v1/orgs/{org}/projects/{slug}/members/{user_id}/kpatches/...`) + import endpoint at member scope
-- [ ] 2.15 Project + member list endpoints support `?include_inherited=true`, returning rows tagged with origin scope + a flag for "has sibling at this scope"
-- [ ] 2.16 Delete bundle code: `services/bundles.py`, `api/bundles.py`, bundle endpoints from `api/orgs.py` (`default-bundles`, `include-unbundled`), bundle fields from `api/projects.py`
+- [x] 2.12 Rewrite resolver to scope-based form (`kpatch-resolution` spec): collect at org/project/member scopes, dedupe lowest-wins, drop disabled. Delete bundle-inheritance code.
+- [x] 2.13 Add project-scope CRUD endpoints (`/api/v1/orgs/{org}/projects/{slug}/kpatches/...`) + import endpoint at project scope
+- [x] 2.14 Add member-scope CRUD endpoints (`/api/v1/orgs/{org}/projects/{slug}/members/{user_id}/kpatches/...`) + import endpoint at member scope
+- [x] 2.15 Project + member list endpoints support `?include_inherited=true`, returning rows tagged with origin scope + a flag for "has sibling at this scope"
+- [x] 2.16 Delete bundle code: `services/bundles.py`, `api/bundles.py`, bundle endpoints from `api/orgs.py` (`default-bundles`, `include-unbundled`), bundle fields from `api/projects.py`
 
 ## 3. Auth + deployment
 
@@ -46,8 +46,8 @@
 - [x] 4.7 Community page: browse community kpatches, Import to org (Owner/Admin only)
 - [ ] 4.8 Clerk sign-in integration on the dashboard with GitHub OAuth enabled
 - [ ] 4.9 Hide team/community surfaces in solo mode (probe server mode at boot)
-- [ ] 4.10 Delete Bundles page + nav entry; remove "Default bundles" / "Include unbundled" surfaces; remove "Attached bundles" / "Disabled kpatches" / "Overridden kpatches" surfaces from Project Detail
-- [ ] 4.11 Project Kpatches view: show project-scope kpatches plus inherited org-scope kpatches (with origin badge) and a disable toggle that creates/destroys a project-scope sibling row with `disable=true`
+- [x] 4.10 Delete Bundles page + nav entry; remove "Default bundles" / "Include unbundled" surfaces; remove "Attached bundles" / "Disabled kpatches" / "Overridden kpatches" surfaces from Project Detail
+- [x] 4.11 Project Kpatches view: show project-scope kpatches plus inherited org-scope kpatches (with origin badge) and a disable toggle that creates/destroys a project-scope sibling row with `disable=true`
 - [ ] 4.12 Member Kpatches view ("My kpatches" on a project): same affordances for the current user's member scope, showing inherited org + project rows with disable toggle
 
 ## 5. Community library

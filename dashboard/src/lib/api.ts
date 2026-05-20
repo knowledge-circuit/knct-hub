@@ -18,14 +18,9 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export type Org = {
-  id: string;
-  name: string;
-  created_at: string;
-  default_bundles: string[];
-  include_unbundled: boolean;
-};
+export type Scope = "org" | "project" | "member";
 
+export type Org = { id: string; name: string; created_at: string };
 export type OrgMember = {
   user_id: string;
   role: "owner" | "admin" | "member";
@@ -33,8 +28,13 @@ export type OrgMember = {
 };
 
 export type Kpatch = {
-  id: string;
+  pk_id: number;
+  scope: Scope;
   org_id: string;
+  project_slug: string | null;
+  user_id: string | null;
+  slug: string;
+  disable: boolean;
   name: string;
   description: string | null;
   body: string;
@@ -43,24 +43,18 @@ export type Kpatch = {
   updated_at: string;
 };
 
+export type KpatchInherited = Kpatch & {
+  origin_scope: Scope;
+  shadowed_at_current: boolean;
+};
+
 export type Trigger = {
   id: number;
-  kpatch_org_id: string;
-  kpatch_id: string;
+  kpatch_id: number;
   event: "session_start" | "user_prompt" | "pre_tool_use";
   prompt_contains: string[] | null;
   path_match: string | null;
   once_per_session: boolean;
-};
-
-export type Bundle = {
-  id: string;
-  org_id: string;
-  name: string;
-  version: string;
-  kpatch_ids: string[];
-  created_at: string;
-  updated_at: string;
 };
 
 export type Project = {
@@ -69,9 +63,22 @@ export type Project = {
   created_at: string;
   access_mode: "org" | "invite_only";
   members: string[];
-  attached_bundles: string[];
-  disabled_kpatch_ids: string[];
-  overridden_kpatches: unknown[];
+};
+
+// ---- URL builders --------------------------------------------------------
+
+function scopePrefix(org_id: string, project_slug?: string, user_id?: string): string {
+  if (user_id && project_slug) {
+    return `/orgs/${org_id}/projects/${project_slug}/members/${user_id}/kpatches`;
+  }
+  if (project_slug) return `/orgs/${org_id}/projects/${project_slug}/kpatches`;
+  return `/orgs/${org_id}/kpatches`;
+}
+
+export type ScopeRef = {
+  org_id: string;
+  project_slug?: string;
+  user_id?: string;
 };
 
 export const api = {
@@ -80,16 +87,6 @@ export const api = {
   getOrg: (org: string) => http<Org>(`/orgs/${org}`),
   createOrg: (id: string, name: string) =>
     http<Org>("/orgs", { method: "POST", body: JSON.stringify({ id, name }) }),
-  setDefaultBundles: (org: string, bundles: string[]) =>
-    http<Org>(`/orgs/${org}/default-bundles`, {
-      method: "PUT",
-      body: JSON.stringify({ default_bundles: bundles }),
-    }),
-  setIncludeUnbundled: (org: string, value: boolean) =>
-    http<Org>(`/orgs/${org}/include-unbundled`, {
-      method: "PUT",
-      body: JSON.stringify({ include_unbundled: value }),
-    }),
   listMembers: (org: string) => http<OrgMember[]>(`/orgs/${org}/members`),
   setMemberRole: (org: string, userId: string, role: string) =>
     http<{ user_id: string; role: string }>(
@@ -99,69 +96,73 @@ export const api = {
   removeMember: (org: string, userId: string) =>
     http<void>(`/orgs/${org}/members/${userId}`, { method: "DELETE" }),
 
-  // Kpatches
-  listKpatches: (org: string) => http<Kpatch[]>(`/orgs/${org}/kpatches`),
-  getKpatch: (org: string, id: string) =>
-    http<Kpatch>(`/orgs/${org}/kpatches/${id}`),
+  // Kpatches (scope-aware)
+  listKpatches: (s: ScopeRef, includeInherited = false) => {
+    const path = scopePrefix(s.org_id, s.project_slug, s.user_id);
+    const q = includeInherited ? "?include_inherited=true" : "";
+    return http<KpatchInherited[]>(`${path}${q}`);
+  },
+  getKpatch: (s: ScopeRef, slug: string) =>
+    http<Kpatch>(`${scopePrefix(s.org_id, s.project_slug, s.user_id)}/${slug}`),
   upsertKpatch: (
-    org: string,
-    id: string,
-    body: { name: string; description: string | null; body: string; keywords: string[] },
+    s: ScopeRef,
+    slug: string,
+    body: {
+      name: string;
+      description: string | null;
+      body: string;
+      keywords: string[];
+      disable?: boolean;
+    },
   ) =>
-    http<Kpatch>(`/orgs/${org}/kpatches/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(body),
+    http<Kpatch>(
+      `${scopePrefix(s.org_id, s.project_slug, s.user_id)}/${slug}`,
+      { method: "PUT", body: JSON.stringify(body) },
+    ),
+  deleteKpatch: (s: ScopeRef, slug: string) =>
+    http<void>(`${scopePrefix(s.org_id, s.project_slug, s.user_id)}/${slug}`, {
+      method: "DELETE",
     }),
-  deleteKpatch: (org: string, id: string) =>
-    http<void>(`/orgs/${org}/kpatches/${id}`, { method: "DELETE" }),
-  importKpatch: (org: string, md: string) =>
+  setDisable: (s: ScopeRef, slug: string, disable: boolean) =>
+    http<Kpatch>(
+      `${scopePrefix(s.org_id, s.project_slug, s.user_id)}/${slug}/disable`,
+      { method: "PUT", body: JSON.stringify({ disable }) },
+    ),
+  importKpatch: (s: ScopeRef, md: string) =>
     http<{ kpatch: Kpatch; trigger: Trigger | null }>(
-      `/orgs/${org}/kpatches/import`,
+      `${scopePrefix(s.org_id, s.project_slug, s.user_id)}/import`,
       { method: "POST", body: md, headers: { "content-type": "text/markdown" } },
     ),
 
-  // Triggers
-  listTriggers: (org: string, kpatchId: string) =>
-    http<Trigger[]>(`/orgs/${org}/kpatches/${kpatchId}/triggers`),
+  // Triggers (under kpatch URL)
+  listTriggers: (s: ScopeRef, slug: string) =>
+    http<Trigger[]>(
+      `${scopePrefix(s.org_id, s.project_slug, s.user_id)}/${slug}/triggers`,
+    ),
   createTrigger: (
-    org: string,
-    kpatchId: string,
-    body: Omit<Trigger, "id" | "kpatch_org_id" | "kpatch_id">,
+    s: ScopeRef,
+    slug: string,
+    body: Omit<Trigger, "id" | "kpatch_id">,
   ) =>
-    http<Trigger>(`/orgs/${org}/kpatches/${kpatchId}/triggers`, {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
+    http<Trigger>(
+      `${scopePrefix(s.org_id, s.project_slug, s.user_id)}/${slug}/triggers`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
   updateTrigger: (
-    org: string,
-    kpatchId: string,
+    s: ScopeRef,
+    slug: string,
     triggerId: number,
-    body: Omit<Trigger, "id" | "kpatch_org_id" | "kpatch_id">,
+    body: Omit<Trigger, "id" | "kpatch_id">,
   ) =>
-    http<Trigger>(`/orgs/${org}/kpatches/${kpatchId}/triggers/${triggerId}`, {
-      method: "PUT",
-      body: JSON.stringify(body),
-    }),
-  deleteTrigger: (org: string, kpatchId: string, triggerId: number) =>
-    http<void>(`/orgs/${org}/kpatches/${kpatchId}/triggers/${triggerId}`, {
-      method: "DELETE",
-    }),
-
-  // Bundles
-  listBundles: (org: string) => http<Bundle[]>(`/orgs/${org}/bundles`),
-  getBundle: (org: string, id: string) =>
-    http<Bundle>(`/orgs/${org}/bundles/${id}`),
-  upsertBundle: (
-    org: string,
-    id: string,
-    body: { name: string; version: string; kpatch_ids: string[] },
-  ) =>
-    http<Bundle>(`/orgs/${org}/bundles/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(body),
-    }),
-  deleteBundle: (org: string, id: string) =>
-    http<void>(`/orgs/${org}/bundles/${id}`, { method: "DELETE" }),
+    http<Trigger>(
+      `${scopePrefix(s.org_id, s.project_slug, s.user_id)}/${slug}/triggers/${triggerId}`,
+      { method: "PUT", body: JSON.stringify(body) },
+    ),
+  deleteTrigger: (s: ScopeRef, slug: string, triggerId: number) =>
+    http<void>(
+      `${scopePrefix(s.org_id, s.project_slug, s.user_id)}/${slug}/triggers/${triggerId}`,
+      { method: "DELETE" },
+    ),
 
   // Projects
   listProjects: (org: string) => http<Project[]>(`/orgs/${org}/projects`),
@@ -178,29 +179,5 @@ export const api = {
     http<Project>(`/projects/${slug}/access`, {
       method: "PUT",
       body: JSON.stringify(body),
-    }),
-  setAttachedBundles: (slug: string, bundles: string[]) =>
-    http<Project>(`/projects/${slug}/attached-bundles`, {
-      method: "PUT",
-      body: JSON.stringify({ attached_bundles: bundles }),
-    }),
-  setDisabledKpatches: (slug: string, ids: string[]) =>
-    http<Project>(`/projects/${slug}/disabled-kpatches`, {
-      method: "PUT",
-      body: JSON.stringify({ disabled_kpatch_ids: ids }),
-    }),
-  setOverriddenKpatches: (slug: string, overrides: unknown[]) =>
-    http<Project>(`/projects/${slug}/overridden-kpatches`, {
-      method: "PUT",
-      body: JSON.stringify({ overridden_kpatches: overrides }),
-    }),
-
-  // Community (read-only stub — backend lands in group 3+)
-  listCommunityBundles: () =>
-    http<Bundle[]>("/community/bundles").catch(() => [] as Bundle[]),
-  importCommunityBundle: (org: string, bundleId: string) =>
-    http<{ ok: boolean }>(`/orgs/${org}/community-imports`, {
-      method: "POST",
-      body: JSON.stringify({ bundle_id: bundleId }),
     }),
 };

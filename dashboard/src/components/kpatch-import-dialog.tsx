@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, type ScopeRef } from "@/lib/api";
 import type { ParsedKpatch } from "@/lib/kpatch-import";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,20 +12,20 @@ import {
 } from "@/components/ui/dialog";
 
 type Props = {
-  org: string;
+  scope: ScopeRef;
   parsed: ParsedKpatch;
   onClose: () => void;
 };
 
-export function KpatchImportDialog({ org, parsed, onClose }: Props) {
+export function KpatchImportDialog({ scope, parsed, onClose }: Props) {
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);
 
   const save = useMutation({
-    mutationFn: () => api.importKpatch(org, parsed.source),
+    mutationFn: () => api.importKpatch(scope, parsed.source),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["kpatches", org] });
-      qc.invalidateQueries({ queryKey: ["triggers", org, parsed.id] });
+      qc.invalidateQueries({ queryKey: ["kpatches"] });
+      qc.invalidateQueries({ queryKey: ["triggers"] });
       onClose();
     },
     onError: (e: Error) => setErr(e.message),

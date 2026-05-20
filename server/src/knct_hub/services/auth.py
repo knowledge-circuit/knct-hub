@@ -17,7 +17,6 @@ production. The middleware that replaces this stub will refuse to honor
 them.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional

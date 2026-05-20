@@ -1,4 +1,3 @@
-import json
 import re
 
 from fastapi import HTTPException
@@ -16,8 +15,6 @@ def serialize_org(org: Org) -> dict:
         "id": org.id,
         "name": org.name,
         "created_at": org.created_at.isoformat(),
-        "default_bundles": json.loads(org.default_bundles or "[]"),
-        "include_unbundled": bool(org.include_unbundled),
     }
 
 
@@ -47,35 +44,12 @@ async def create_org(
     existing = await session.exec(select(Org).where(Org.id == org_id))
     if existing.first():
         raise HTTPException(status_code=409, detail="org id already exists")
-    # Ensure user row exists (cloud auth creates this; for the stub we make it idempotent).
     user_result = await session.exec(select(User).where(User.id == creator_user_id))
     if not user_result.first():
         session.add(User(id=creator_user_id))
     org = Org(id=org_id, name=name)
     session.add(org)
-    session.add(
-        OrgMember(org_id=org_id, user_id=creator_user_id, role="owner")
-    )
-    await session.commit()
-    await session.refresh(org)
-    return org
-
-
-async def update_org_default_bundles(
-    session: AsyncSession, org_id: str, default_bundles: list[str]
-) -> Org:
-    org = await get_org(session, org_id)
-    org.default_bundles = json.dumps(default_bundles)
-    await session.commit()
-    await session.refresh(org)
-    return org
-
-
-async def update_org_include_unbundled(
-    session: AsyncSession, org_id: str, include_unbundled: bool
-) -> Org:
-    org = await get_org(session, org_id)
-    org.include_unbundled = bool(include_unbundled)
+    session.add(OrgMember(org_id=org_id, user_id=creator_user_id, role="owner"))
     await session.commit()
     await session.refresh(org)
     return org
@@ -114,7 +88,6 @@ async def set_member_role(
     )
     member = result.first()
     if not member:
-        # Allow adding members by setting role for an existing user.
         user_result = await session.exec(select(User).where(User.id == user_id))
         if not user_result.first():
             raise HTTPException(status_code=404, detail="user not found")
@@ -125,9 +98,7 @@ async def set_member_role(
 
     if member.role == "owner" and role != "owner":
         if await _count_owners(session, org_id) <= 1:
-            raise HTTPException(
-                status_code=409, detail="cannot demote the last owner"
-            )
+            raise HTTPException(status_code=409, detail="cannot demote the last owner")
     member.role = role
     await session.commit()
     return {"user_id": user_id, "role": role}
@@ -146,8 +117,6 @@ async def remove_member(
     if not member:
         raise HTTPException(status_code=404, detail="member not found")
     if member.role == "owner" and await _count_owners(session, org_id) <= 1:
-        raise HTTPException(
-            status_code=409, detail="cannot remove the last owner"
-        )
+        raise HTTPException(status_code=409, detail="cannot remove the last owner")
     await session.delete(member)
     await session.commit()
