@@ -1,5 +1,9 @@
 # knct-hub server
 
+> **Status: paused.** knct is local-first via [`@knct/cli`](../cli). The server
+> is kept in-tree for reference and may return when there's a real need for
+> team-wide kpatch sharing, traces UI, or auth. Don't build on it right now.
+
 FastAPI hub server: ingests Claude Code hook events, resolves kpatches across org / project / member scopes, evaluates triggers, and returns injection payloads.
 
 ## Concepts

@@ -1,116 +1,74 @@
 # knct-hub
 
-Smart context injection for AI coding agents. Scope-resolved, hook-driven, observable.
+Smart context injection for AI coding agents. Local-first, hook-driven, observable.
 
-## Why knct-hub
+## Why
 
 - **AGENTS.md is dumb accumulation.** Everything in the path gets merged into context, which degrades agent performance as repos grow.
 - **MCP is pull-based.** The model has to know to ask. Models forget or don't know what they don't know.
-- **knct-hub is push-based via hooks.** Deterministic, scoped, observable. Kpatches are injected only when a matching trigger fires for the project/user.
+- **kpatches are push-based via hooks.** Deterministic, scoped to a prompt, observable. Only the kpatches whose triggers match a given prompt are folded into context.
 
 ## Concepts
 
-- **kpatch** — a single markdown file (frontmatter + body) that gets injected into the agent's context when one of its **triggers** matches an event. The frontmatter optionally carries one default trigger; more can be added in the dashboard.
-- **scope** — every kpatch lives at exactly one scope:
-  - `org` — applies to every project in the org
-  - `project` — applies to one project
-  - `member` — applies to one user on one project
-- **resolution** — for each hook, the server collects kpatches at all three scopes for `(caller_org, project, user)`, keeps the **lowest-scope** row per slug (member > project > org), and drops any with `disable=true`. The survivors' triggers are evaluated against the event.
-- **override** = create a sibling kpatch at a lower scope with new content. **disable** = create the sibling with `disable=true`. No separate disable/override arrays.
+- **kpatch** — a single markdown file (`.knct/kpatches/<id>.md`) with frontmatter + body. When one of its **triggers** matches the user prompt, the body is folded into context. Use `always: true` for unconditional injection.
+- **hook** — `.knct/hooks/inject.py` runs on every `UserPromptSubmit`, walks `.knct/kpatches/`, matches triggers against the prompt, and emits the matching bodies as `additionalContext` for Claude Code.
+- **statusline** — `.knct/bin/statusline.sh` reads the most recent injection state (written by the hook into `.knct/state/`) and shows which kpatches fired on the last prompt.
 
 ## Supported agents
 
-- **Claude Code** — supported. `npx @knct/cli init` wires the HTTP hooks in `.claude/settings.json`.
-- **opencode** — planned, not started. The hub already speaks a clean JSON contract; the work is the plugin wrapper.
+- **Claude Code** — supported. `npx @knct/cli init` writes the hook, statusline, and starter kpatches into your repo.
+- **opencode** — planned. The hook contract is plain JSON on stdin/stdout; the work is the plugin wrapper.
+
+## Quick start
+
+```bash
+cd path/to/your/repo
+npx @knct/cli init
+```
+
+Pick a project slug and check the starter kpatches you want. Restart Claude Code so the new hooks load. That's it — no server, no network, no Docker.
+
+See [`cli/README.md`](./cli/README.md) for the full command reference.
 
 ## Monorepo layout
 
 ```
 knct-hub/
-├── server/       # FastAPI hub server (Python). Run locally or deploy.
-├── cli/          # @knct/cli — npx-installable CLI (TypeScript).
-├── dashboard/    # React + Vite + Tailwind admin UI (bundled into the server image).
-├── kpatches/     # this repo's own seed kpatches
-├── .knct/        # this repo's own knct config (we dogfood)
-└── .claude/      # this repo's own Claude Code hook wiring
-```
-
-See [`server/`](./server), [`cli/`](./cli), and [`dashboard/`](./dashboard) for component-level docs.
-
-## Quick start
-
-```bash
-# 1. Run the hub (image is published to ghcr; no clone needed):
-docker run -d --name knct-hub \
-  --restart unless-stopped \
-  -p 8765:8765 -v ~/.knct:/data \
-  ghcr.io/knowledge-circuit/knct-hub:latest
-
-# 2. Wire any repo you want to dogfood:
-npx @knct/cli init
-
-# 3. Open the dashboard + API on the same port:
-open http://localhost:8765
-```
-
-The container restarts automatically and persists data to `~/.knct/hub.db` on the host. All endpoints live under `/api/v1/...`. SQLite by default; Postgres supported via `KNCT_DATABASE_URL`.
-
-### From source
-
-```bash
-# server
-cd server
-uv run python -m knct_hub          # listens on http://127.0.0.1:8765
-
-# dashboard (separate dev server, proxies /api → :8765)
-cd dashboard
-pnpm install
-pnpm run dev                       # http://localhost:5173
-
-# or build everything into one image
-docker compose up -d --build
+├── cli/              # @knct/cli — npx-installable CLI (TypeScript). The supported install path.
+├── cli/assets/       # inject.py + statusline.sh (canonical, bundled into the CLI).
+├── cli/kpatches/     # starter kpatch library bundled into the CLI.
+├── .knct/            # this repo dogfoods knct — its own hook, statusline, and kpatches.
+├── .claude/          # this repo's Claude Code hook wiring.
+├── server/           # PAUSED: FastAPI hub server (kept for reference, see server/README.md).
+└── dashboard/        # PAUSED: React admin UI for the server.
 ```
 
 ## Authoring kpatches
 
-A kpatch is a markdown file with a YAML frontmatter block. Create or import one from the dashboard's Kpatches page (org scope), the project kpatches view (project scope), or — once auth lands — the "My kpatches" view (member scope). Drop area + Import button both accept a `.md` file shaped like:
+A kpatch is a markdown file with YAML frontmatter:
 
 ```markdown
 ---
-id: commit-conventions             # required, kebab-case (the "slug")
+id: commit-conventions             # required, kebab-case
 name: Commit conventions           # required
-description: One-liner...          # optional
-keywords:                          # optional
-  - commit
-  - git commit
-trigger:                           # optional default trigger
-  event: user_prompt               # session_start | user_prompt | pre_tool_use
-  prompt_contains: ["commit"]      # only for user_prompt
-  path_match: "services/**"        # optional glob
+description: One-liner...          # shown in `knct kpatch add` picker
+triggers: [commit, "git commit"]   # case-insensitive substring match on the prompt
 ---
 
 # Body in markdown
 
-The body below the closing `---` is the text that gets injected.
+The body below the closing `---` is the text that gets folded into context
+whenever a trigger matches.
 ```
 
-The file itself carries no scope hint — scope is determined by *where* you import it. The same file can be imported at multiple scopes, and lower-scope copies shadow higher-scope ones.
+Use `always: true` instead of `triggers:` to inject on every prompt.
 
-See [`kpatches/commit-with-linear-refs.md`](./kpatches/commit-with-linear-refs.md) for a real example.
-
-## Inspect traces
-
-```bash
-curl 'http://localhost:8765/api/v1/traces?limit=10&only_injections=true'
-sqlite3 ~/.knct/hub.db 'select ts, event, kpatch_ids from traces order by ts desc limit 20'
-```
-
-The dashboard's Traces page shows which kpatches fired for each hook (with chips, filters, and an "Only injections" toggle).
+See [`cli/kpatches/commit-with-linear-refs.md`](./cli/kpatches/commit-with-linear-refs.md) for a real example.
 
 ## Releases
 
-Both server and CLI ship from GitHub Actions on tag push. See [`docs/RELEASING.md`](./docs/RELEASING.md) for the procedure.
+The CLI ships from GitHub Actions on tag push. See [`docs/RELEASING.md`](./docs/RELEASING.md).
 
 ## Status
 
-Early. End-to-end working: scope-resolved kpatches (org / project / member) with override + disable via sibling rows, trigger engine with per-session dedupe, CLI initial wiring (`@knct/cli` on npm), dashboard with kpatch / trigger / project CRUD and a traces view bundled into the server image, automated multi-arch image to `ghcr.io`. Missing: auth (Clerk + device tokens in progress), community library, opencode plugin.
+Local-first kpatch flow works end-to-end: bundled hook + statusline + starter library installed via `@knct/cli init`, idempotent settings.json merge, `knct upgrade` for refreshing assets, `knct kpatch add` for picking more from the library. The server and dashboard (org/project/member scope resolution, traces UI, project CRUD) are paused; the path forward there depends on real demand for team-wide kpatch sharing.

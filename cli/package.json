@@ -1,7 +1,7 @@
 {
   "name": "@knct/cli",
   "version": "0.1.1",
-  "description": "CLI for knct-hub — link a repo to a hub project.",
+  "description": "Local-first kpatch installer for Claude Code.",
   "type": "module",
   "license": "Apache-2.0",
   "repository": {
@@ -21,9 +21,10 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "tsx src/cli.ts",
-    "build": "esbuild src/cli.ts --bundle --platform=node --target=node20 --format=esm --packages=external --banner:js='#!/usr/bin/env node' --outfile=dist/cli.js && chmod +x dist/cli.js",
-    "pack:dry": "npm pack --dry-run"
+    "manifest": "node scripts/build-manifest.mjs",
+    "dev": "pnpm run manifest && tsx src/cli.ts",
+    "build": "pnpm run manifest && esbuild src/cli.ts --bundle --platform=node --target=node20 --format=esm --packages=external --loader:.py=text --loader:.sh=text --loader:.md=text --banner:js='#!/usr/bin/env node' --outfile=dist/cli.js && chmod +x dist/cli.js",
+    "pack:dry": "pnpm run build && npm pack --dry-run"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",

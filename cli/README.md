@@ -1,8 +1,13 @@
 # @knct/cli
 
-CLI for [knct-hub](../). Links a repository to a hub project so Claude Code's hooks know where to send events.
+Local-first kpatch installer for [Claude Code](https://docs.claude.com/en/docs/claude-code).
 
-The CLI talks to the hub under `/api/v1/...` and writes hook URLs that point at `<hub>/api/v1/hook`.
+A **kpatch** is a markdown file with frontmatter. The hook installed by this CLI
+reads `.knct/kpatches/*.md` on every `UserPromptSubmit`, picks the ones whose
+triggers match the prompt, and folds their bodies into context. The companion
+statusline shows which kpatches fired last.
+
+No server, no network. Everything lives in the repo.
 
 ## Usage
 
@@ -10,58 +15,78 @@ The CLI talks to the hub under `/api/v1/...` and writes hook URLs that point at 
 npx @knct/cli init
 ```
 
-Runs interactively: prompts for a hub URL, fetches the project list, and lets you pick an existing project or create a new one. Writes:
+Interactive. Prompts for a project slug and a multi-select of starter kpatches,
+then writes:
 
-- `.knct/config.toml` — slug + hub URL (overwritten if present)
-- `.claude/settings.json` — hook entries for the six wired events, each with an `X-Project-Slug` header (overwritten if present)
+- `.knct/config.toml` — just the slug for now
+- `.knct/hooks/inject.py` — UserPromptSubmit hook (Python, stdlib only)
+- `.knct/bin/statusline.sh` — statusline reading the latest injection state
+- `.knct/kpatches/*.md` — the kpatches you picked
+- `.claude/settings.json` — merged: adds the inject hook + statusline, preserves
+  any other entries you already had
 
-After init, **restart Claude Code** so the new hook settings are picked up.
+Restart Claude Code after init so the new hooks load.
 
-### Options
+## Commands
 
-| Flag | Description |
-|------|-------------|
-| `--hub <url>` | Hub URL. Skips the URL prompt. Default if prompted: `http://localhost:8765`. |
-| `-h, --help` | Show usage. |
+| Command | What it does |
+|---|---|
+| `knct init` | First-time setup. Idempotent — safe to re-run. |
+| `knct upgrade` | Re-emit `inject.py` and `statusline.sh` from the bundled assets. Run after `npm i -g @knct/cli@latest`. |
+| `knct kpatch add` | Pick more from the bundled library and copy them in. Won't overwrite existing files. |
 
-### Examples
+## Writing your own kpatch
 
-Solo / local hub:
-```bash
-npx @knct/cli init --hub http://localhost:8765
-```
+Drop a markdown file in `.knct/kpatches/`:
 
-Team / remote hub:
-```bash
-npx @knct/cli init --hub https://hub.your-team.dev
+```markdown
+---
+id: my-rule
+name: My rule
+description: One-liner for the picker.
+triggers: [keyword, "another phrase"]
+---
+
+# Body
+
+This text is folded into context whenever the prompt contains one of the
+triggers (case-insensitive substring match). Use `always: true` instead of
+`triggers:` to inject on every prompt.
 ```
 
 ## Development
 
 ```bash
 pnpm install
-pnpm run dev -- init --hub http://localhost:8765   # iterate via tsx
-pnpm run build                                     # bundle to dist/cli.js
-node dist/cli.js init                             # run the built bundle
+pnpm run dev -- init                    # iterate via tsx
+pnpm run build                          # bundle + inline assets into dist/cli.js
+node dist/cli.js init                   # run the built bundle
 ```
+
+The bundle inlines `assets/inject.py`, `assets/statusline.sh`, and every
+`kpatches/*.md` as strings via esbuild's text loader, so the published npm
+package is just `dist/cli.js`.
+
+`assets/inject.py` and `assets/statusline.sh` are the canonical copies — edit
+them here, then `pnpm run build` and either republish or `knct upgrade` in
+consumer repos.
 
 ### Running locally as `knct`
 
-To use `knct` as a real command on your PATH before the package is published:
-
 ```bash
 cd cli
-pnpm link --global    # symlinks `knct` globally
-knct init             # runs from any directory
+pnpm install && pnpm run build
+pnpm install -g .       # registers `knct` globally; pnpm 10 syntax
+knct init
 # undo with:
-pnpm unlink --global @knct/cli
+pnpm uninstall -g @knct/cli
 ```
 
-The hub must be running first (`cd ../server && uv run python -m knct_hub`).
+> Don't use `pnpm link --global .` — pnpm 10 writes a self-referencing
+> `"@knct/cli": "link:"` into this package.json, which then breaks future
+> `pnpm install` runs.
 
 ## Release
-
-Releases are automated. Bump the version with `bump-my-version`, push the tag, and GitHub Actions publishes:
 
 ```bash
 cd cli
