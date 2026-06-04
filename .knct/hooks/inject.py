@@ -24,16 +24,34 @@ def main() -> None:
             return
 
         chunks = []
+        names = []
         for path in sorted(kpatch_dir.glob("*.md")):
             meta, body = parse_frontmatter(path.read_text(encoding="utf-8"))
             if not should_inject(meta, prompt):
                 continue
             chunks.append(f"<!-- kpatch: {path.stem} -->\n{body.strip()}")
+            names.append(path.stem)
+
+        write_state(data.get("session_id"), names)
 
         if chunks:
             sys.stdout.write("\n\n".join(chunks) + "\n")
     except Exception:
         # fail-safe: swallow, exit 0
+        return
+
+
+def write_state(session_id, names) -> None:
+    if not session_id:
+        return
+    proj = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    state_dir = Path(proj) / ".knct" / "state"
+    try:
+        state_dir.mkdir(parents=True, exist_ok=True)
+        (state_dir / f"{session_id}.json").write_text(
+            json.dumps({"kpatches": names}), encoding="utf-8"
+        )
+    except OSError:
         return
 
 
