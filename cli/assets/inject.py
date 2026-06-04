@@ -10,49 +10,82 @@ import json
 import os
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 
 def main() -> None:
+    log: dict = {"ts": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     try:
         raw = sys.stdin.read() if not sys.stdin.isatty() else ""
         data = json.loads(raw) if raw.strip() else {}
         prompt = str(data.get("prompt", "")).lower()
+        session_id = data.get("session_id")
+        log["session_id"] = session_id
+        log["prompt_len"] = len(prompt)
 
         kpatch_dir = find_kpatch_dir()
+        log["kpatch_dir"] = str(kpatch_dir) if kpatch_dir else None
         if not kpatch_dir:
+            log["error"] = "no kpatch_dir found"
             return
+
+        candidates = sorted(kpatch_dir.glob("*.md"))
+        log["candidates"] = [p.stem for p in candidates]
 
         chunks = []
         names = []
-        for path in sorted(kpatch_dir.glob("*.md")):
+        for path in candidates:
             meta, body = parse_frontmatter(path.read_text(encoding="utf-8"))
             if not should_inject(meta, prompt):
                 continue
             chunks.append(f"<!-- kpatch: {path.stem} -->\n{body.strip()}")
             names.append(path.stem)
 
-        write_state(data.get("session_id"), names)
+        log["matched"] = names
+        log["state_written"] = write_state(session_id, names)
 
         if chunks:
             sys.stdout.write("\n\n".join(chunks) + "\n")
-    except Exception:
-        # fail-safe: swallow, exit 0
+    except Exception as e:
+        log["error"] = f"{type(e).__name__}: {e}"
+    finally:
+        append_log(log)
+
+
+def append_log(entry: dict) -> None:
+    state_dir = state_dir_path()
+    if not state_dir:
+        return
+    try:
+        state_dir.mkdir(parents=True, exist_ok=True)
+        with (state_dir / "inject.log").open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, default=str) + "\n")
+    except OSError:
         return
 
 
-def write_state(session_id, names) -> None:
+def write_state(session_id, names) -> bool:
     if not session_id:
-        return
-    proj = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
-    state_dir = Path(proj) / ".knct" / "state"
+        return False
+    state_dir = state_dir_path()
+    if not state_dir:
+        return False
     try:
         state_dir.mkdir(parents=True, exist_ok=True)
         (state_dir / f"{session_id}.json").write_text(
             json.dumps({"kpatches": names}), encoding="utf-8"
         )
+        return True
     except OSError:
-        return
+        return False
+
+
+def state_dir_path() -> Path | None:
+    proj = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    if not proj:
+        return None
+    return Path(proj) / ".knct" / "state"
 
 
 def find_kpatch_dir() -> Path | None:

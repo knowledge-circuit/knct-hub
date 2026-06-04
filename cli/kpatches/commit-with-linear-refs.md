@@ -2,20 +2,7 @@
 id: commit-with-linear-refs
 name: Commit with Linear project refs
 description: Compose git commits for this repo with the right type prefix, Linear KC-NNN ref derived from the branch name, and the project's hard rules (no --no-verify, no amend, no Co-Authored-By, one Refs per branch).
-keywords:
-  - commit
-  - committing
-  - committed
-  - git commit
-  - "refs "
-  - linear id
-trigger:
-  event: user_prompt
-  prompt_contains:
-    - commit
-    - committing
-    - committed
-    - git commit
+triggers: [commit, committing, committed, "git commit", "refs ", "linear id"]
 ---
 
 # Commit with Linear project refs
